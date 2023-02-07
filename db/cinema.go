@@ -3,22 +3,23 @@ package db
 import (
 	"context"
 	"database/sql"
-	"log"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	CreateUserQuery = `INSERT INTO USERS(name, password, email, phone_number) VALUES ($1, crypt($2, gen_salt('bf')), $3, $4 ) returning user_id`
+	CreateUserQuery = `INSERT INTO USERS(name, password, email, phone_number, role) VALUES ($1, $2, $3, $4, $5 ) returning user_id`
+	getUserByEmail  = `SELECT * FROM users WHERE email=$1`
 )
 
 type User struct {
-	ID          int    `json:"user_id" db:"id"`
+	ID          int    `json:"user_id" db:"user_id"`
 	Name        string `json:"name" db:"name"`
 	Email       string `json:"email" db:"email"`
 	Password    string `json:"-" db:"password"`
 	PhoneNumber string `json:"phone_number" db:"phone_number"`
+	Role        string `json:"role" db:"role"`
 }
 
 type Movies struct {
@@ -94,7 +95,6 @@ type Transactions struct {
 }
 
 func (s *store) CreateUser(ctx context.Context, u User) (user_id uint, err error) {
-	log.Println("new user db reached")
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return
@@ -113,11 +113,25 @@ func (s *store) CreateUser(ctx context.Context, u User) (user_id uint, err error
 
 	ctxWithTx := newContext(ctx, tx)
 	err = WithDefaultTimeout(ctxWithTx, func(ctx context.Context) error {
-		if err := s.db.GetContext(ctx, &user_id, CreateUserQuery, u.Name, u.Password, u.Email, u.PhoneNumber); err != nil {
+		if err := s.db.GetContext(ctx, &user_id, CreateUserQuery, u.Name, u.Password, u.Email, u.PhoneNumber, u.Role); err != nil {
 			return err
 		}
 		return nil
 
 	})
 	return
+}
+
+func (s *store) GetUserByEmail(ctx context.Context, email string) (u User, err error) {
+
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		err = s.db.GetContext(ctx, &u, getUserByEmail, email)
+		return err
+	})
+
+	if err == sql.ErrNoRows {
+		return u, errors.New("user does not exist in db")
+	}
+	return
+
 }

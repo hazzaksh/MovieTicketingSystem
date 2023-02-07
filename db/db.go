@@ -16,6 +16,7 @@ const (
 
 type Storer interface {
 	CreateUser(ctx context.Context, u User) (user_id uint, err error)
+	GetUserByEmail(ctx context.Context, email string) (u User, err error)
 	// GetUserByName(ctx context.Context, name string) (u User, err error)
 	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
 	// GetMultiplexesByName(ctx context.Context, name string) (m Multiplexes, err error)

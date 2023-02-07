@@ -2,12 +2,15 @@ package booking
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"net/mail"
 	"regexp"
 	"strings"
 
 	"github.com/Coderx44/MovieTicketingPortal/app"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func PingHandler(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +48,13 @@ func CreateNewUser(s Service) http.HandlerFunc {
 			return
 		}
 
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newUser.Password), bcrypt.DefaultCost)
+		if err != nil {
+			panic(err)
+		}
+
+		newUser.Password = string(hashedPassword)
+		newUser.Role = "user"
 		newResp, err := s.CreateNewUser(r.Context(), newUser)
 
 		if err != nil {
@@ -69,4 +79,48 @@ func CreateNewUser(s Service) http.HandlerFunc {
 
 	})
 
+}
+
+func Login(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var authUser Authentication
+		err := json.NewDecoder(r.Body).Decode(&authUser)
+		log.Println(authUser)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(err)
+			return
+		}
+
+		if authUser.Email == "" || authUser.Password == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: Email address and password must be provided"))
+			return
+		}
+		if _, err := mail.ParseAddress(authUser.Email); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err - Invalid email address"))
+			return
+		}
+		authUser.Email = strings.Trim(authUser.Email, " ")
+		tokenString, _, err := s.Login(r.Context(), authUser)
+
+		if err != nil {
+			if err == errors.New("unauthorized") {
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("Unauthorized"))
+				return
+			}
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err: Internal Server Error"))
+			return
+		}
+		var resp = LoginResp{
+			Token: tokenString,
+			Mssg:  "Successfully logged in",
+		}
+		json.NewEncoder(w).Encode(resp)
+
+	})
 }

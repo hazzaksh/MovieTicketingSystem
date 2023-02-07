@@ -6,8 +6,8 @@ user_id  SERIAL PRIMARY KEY,
 name text,
 email citext UNIQUE,
 password text,
-phone_number text
-
+phone_number text,
+role text
 );
 
 CREATE TABLE IF NOT EXISTS movies(
@@ -101,3 +101,6 @@ price int,
 time_stamp timestamp,
 booking_id int REFERENCES bookings (booking_id)
 ); 
+
+
+/* migrate -path migrations -database "postgresql://postgres:dbqwer@localhost:5432/TicketingPortal?sslmode=disable" -verbose up */
