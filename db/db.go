@@ -7,13 +7,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type ctxKey int
+
 const (
-	// dbKey          ctxKey = 0
-	defaultTimeout = 1 * time.Second
+	dbKey          ctxKey = 0
+	defaultTimeout        = 1 * time.Second
 )
 
 type Storer interface {
-	// CreateUser(ctx context.Context, u User) (err error)
+	CreateUser(ctx context.Context, u User) (user_id uint, err error)
 	// GetUserByName(ctx context.Context, name string) (u User, err error)
 	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
 	// GetMultiplexesByName(ctx context.Context, name string) (m Multiplexes, err error)
@@ -35,9 +37,9 @@ func NewStorer(d *sqlx.DB) Storer {
 	}
 }
 
-// func newContext(ctx context.Context, tx *sqlx.Tx) context.Context {
-// 	return context.WithValue(ctx, tx)
-// }
+func newContext(ctx context.Context, tx *sqlx.Tx) context.Context {
+	return context.WithValue(ctx, dbKey, tx)
+}
 
 func WithTimeout(ctx context.Context, timeout time.Duration, op func(ctx context.Context) error) (err error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)

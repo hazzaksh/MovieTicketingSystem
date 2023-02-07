@@ -1,7 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS users(
 
-user_id int serial PRIMARY KEY,
+user_id  SERIAL PRIMARY KEY,
 name text,
 email citext UNIQUE,
 password text,
@@ -11,7 +12,7 @@ phone_number text
 
 CREATE TABLE IF NOT EXISTS movies(
 
-movie_id int PRIMARY key,
+movie_id SERIAL PRIMARY KEY,
 title text,
 language text,
 poster bytea,
@@ -23,7 +24,7 @@ duration text
 
 
 CREATE TABLE IF NOT EXISTS locations(
-    location_id int PRIMARY key,
+    location_id SERIAL PRIMARY KEY,
     city text,
     state text,
     pincode int
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS locations(
 
 
 CREATE TABLE IF NOT EXISTS multiplexes(
-multiplex_id int PRIMARY KEY,
+multiplex_id SERIAL PRIMARY KEY,
 name text,
 contact text,
 total_screens int,
@@ -42,7 +43,7 @@ location_id int REFERENCES locations (location_id)
 
 CREATE TABLE IF NOT EXISTS screens(
 
-    screen_id int PRIMARY key,
+    screen_id SERIAL PRIMARY KEY,
     total_seats int,
     sound_system text,
     screen_dimension text,
@@ -52,7 +53,7 @@ CREATE TABLE IF NOT EXISTS screens(
 
 CREATE TABLE IF NOT EXISTS shows(
 
-show_id int PRIMARY key,
+show_id SERIAL PRIMARY KEY,
 show_date date,
 start_time time,
 end_time time,
@@ -61,11 +62,11 @@ movie_id int REFERENCES movies (movie_id),
 multiplex_id int REFERENCES multiplexes (multiplex_id)
 
 );
-
+ 
 
 CREATE TABLE IF NOT EXISTS screen_types(
 
-screen_type_id int PRIMARY key,
+screen_type_id SERIAL PRIMARY KEY,
 seat_number int,
 class text,
 screen_id int REFERENCES screens (screen_id)
@@ -74,28 +75,29 @@ screen_id int REFERENCES screens (screen_id)
 
 CREATE TABLE IF NOT EXISTS seats(
 
-seat_id int PRIMARY key,
+seat_id SERIAL PRIMARY KEY,
 price int,
 status text,
-screen_type_id int REFERENCES screen_types (screen_type_id)
-
+screen_type_id int REFERENCES screen_types (screen_type_id),
+show_id int REFERENCES shows (show_id)
 );
 
 CREATE TABLE IF NOT EXISTS bookings(
 
-booking_id int PRIMARY key,
-number_of_seats int,
+booking_id SERIAL PRIMARY KEY,
+seat_no int,
 status text,
 expiry timestamp,
 user_id int REFERENCES users (user_id),
-seat_id int REFERENCES seats (seat_id)
+seat_id int REFERENCES seats (seat_id),
+show_id int REFERENCES shows (show_id)
 
 );
 
 CREATE TABLE IF NOT EXISTS transactions(
 
-transaction_id int PRIMARY key,
+transaction_id SERIAL PRIMARY KEY,
 price int,
 time_stamp timestamp,
 booking_id int REFERENCES bookings (booking_id)
-);
+); 

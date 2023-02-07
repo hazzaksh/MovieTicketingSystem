@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/Coderx44/MovieTicketingPortal/app"
 	"github.com/Coderx44/MovieTicketingPortal/config"
 	"github.com/Coderx44/MovieTicketingPortal/db"
 	"github.com/Coderx44/MovieTicketingPortal/service"
@@ -17,6 +18,8 @@ func main() {
 	})
 
 	config.Load()
+	app.Init()
+	defer app.Close()
 
 	cliApp := cli.NewApp()
 	cliApp.Name = config.AppName()

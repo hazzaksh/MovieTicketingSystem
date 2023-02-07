@@ -1,9 +1,21 @@
 package db
 
-import "time"
+import (
+	"context"
+	"database/sql"
+	"log"
+	"time"
+
+	"github.com/pkg/errors"
+)
+
+const (
+	CreateUserQuery = `INSERT INTO USERS(name, password, email, phone_number) VALUES ($1, crypt($2, gen_salt('bf')), $3, $4 ) returning user_id`
+)
 
 type User struct {
 	ID          int    `json:"user_id" db:"id"`
+	Name        string `json:"name" db:"name"`
 	Email       string `json:"email" db:"email"`
 	Password    string `json:"-" db:"password"`
 	PhoneNumber string `json:"phone_number" db:"phone_number"`
@@ -79,4 +91,33 @@ type Transactions struct {
 	Price          int       `json:"price" db:"price"`
 	Time_stamp     time.Time `json:"time_stamp" db:"time_stamp"`
 	Booking_id     int       `json:"booking_id" db:"booking_id"`
+}
+
+func (s *store) CreateUser(ctx context.Context, u User) (user_id uint, err error) {
+	log.Println("new user db reached")
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			e := tx.Rollback()
+			if e != nil {
+				err = errors.WithStack(e)
+				return
+			}
+		}
+		tx.Commit()
+	}()
+
+	ctxWithTx := newContext(ctx, tx)
+	err = WithDefaultTimeout(ctxWithTx, func(ctx context.Context) error {
+		if err := s.db.GetContext(ctx, &user_id, CreateUserQuery, u.Name, u.Password, u.Email, u.PhoneNumber); err != nil {
+			return err
+		}
+		return nil
+
+	})
+	return
 }
