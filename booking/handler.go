@@ -20,7 +20,8 @@ func PingHandler(w http.ResponseWriter, r *http.Request) {
 
 func CreateNewUser(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
+		path := r.URL.Path
+		role := strings.Split(path, "/")[2]
 		var newUser NewUser
 		err := json.NewDecoder(r.Body).Decode(&newUser)
 		if err != nil {
@@ -54,7 +55,7 @@ func CreateNewUser(s Service) http.HandlerFunc {
 		}
 
 		newUser.Password = string(hashedPassword)
-		newUser.Role = "user"
+		newUser.Role = role
 		newResp, err := s.CreateNewUser(r.Context(), newUser)
 
 		if err != nil {
@@ -121,6 +122,42 @@ func Login(s Service) http.HandlerFunc {
 			Mssg:  "Successfully logged in",
 		}
 		json.NewEncoder(w).Encode(resp)
+
+	})
+}
+
+func AddMovie(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header["Token"]
+
+		claims, err := ValidateJWT(tokenString[0])
+		if err != nil || claims.Role != "admin" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode("Unauthorized")
+			return
+		}
+
+		var newM NewMovie
+		json.NewDecoder(r.Body).Decode(&newM)
+
+		if newM.Title == "" || newM.Language == "" || newM.Release_date == "" || newM.Genre == "" || newM.Duration == 0.0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Provide the required parameters"))
+			return
+		}
+
+		movie_id, err := s.AddMovie(r.Context(), newM)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err - Internal Server Error - Failure creating user account"))
+			return
+		}
+
+		respBytes, _ := json.Marshal(movie_id)
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(respBytes)
 
 	})
 }

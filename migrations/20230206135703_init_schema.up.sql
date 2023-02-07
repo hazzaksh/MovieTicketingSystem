@@ -44,6 +44,7 @@ location_id int REFERENCES locations (location_id)
 CREATE TABLE IF NOT EXISTS screens(
 
     screen_id SERIAL PRIMARY KEY,
+    screen_number int,
     total_seats int,
     sound_system text,
     screen_dimension text,
@@ -64,43 +65,26 @@ multiplex_id int REFERENCES multiplexes (multiplex_id)
 );
  
 
-CREATE TABLE IF NOT EXISTS screen_types(
-
-screen_type_id SERIAL PRIMARY KEY,
-seat_number int,
-class text,
-screen_id int REFERENCES screens (screen_id)
-
-);
-
 CREATE TABLE IF NOT EXISTS seats(
 
 seat_id SERIAL PRIMARY KEY,
+seat_number int,
 price int,
 status text,
-screen_type_id int REFERENCES screen_types (screen_type_id),
 show_id int REFERENCES shows (show_id)
 );
 
 CREATE TABLE IF NOT EXISTS bookings(
 
 booking_id SERIAL PRIMARY KEY,
-seat_no int,
 status text,
-expiry timestamp,
 user_id int REFERENCES users (user_id),
 seat_id int REFERENCES seats (seat_id),
 show_id int REFERENCES shows (show_id)
 
 );
 
-CREATE TABLE IF NOT EXISTS transactions(
 
-transaction_id SERIAL PRIMARY KEY,
-price int,
-time_stamp timestamp,
-booking_id int REFERENCES bookings (booking_id)
-); 
 
 
 /* migrate -path migrations -database "postgresql://postgres:dbqwer@localhost:5432/TicketingPortal?sslmode=disable" -verbose up */

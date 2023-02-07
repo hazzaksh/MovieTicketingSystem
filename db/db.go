@@ -17,9 +17,12 @@ const (
 type Storer interface {
 	CreateUser(ctx context.Context, u User) (user_id uint, err error)
 	GetUserByEmail(ctx context.Context, email string) (u User, err error)
+	AddMovie(ctx context.Context, m Movie) (movie_id uint, err error)
+	AddScreen(ctx context.Context, m Screen) (screen_id uint, err error)
+	GetMultiplexesByName(ctx context.Context, name string) (m Multiplexe, err error)
+
 	// GetUserByName(ctx context.Context, name string) (u User, err error)
 	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
-	// GetMultiplexesByName(ctx context.Context, name string) (m Multiplexes, err error)
 	// GetMovieByTitle(ctx context.Context, title string) (m Movies, err error)
 	// GetShowByMultiplexID(ctx context.Context, multiplex_id int) (s []Shows, err error)
 	// GetScreenByID(ctx context.Context, id int) (s Screens, err error)

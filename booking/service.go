@@ -12,9 +12,12 @@ import (
 
 var secretKey = []byte("ThisIsMyFistGolangProjecT")
 
+const DateOnly = "2006-01-02"
+
 type Service interface {
 	CreateNewUser(ctx context.Context, u NewUser) (user_id uint, err error)
 	Login(ctx context.Context, authU Authentication) (tokenString string, tokenExpirationTime time.Time, err error)
+	AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error)
 }
 
 type bookingService struct {
@@ -68,10 +71,36 @@ func (b *bookingService) Login(ctx context.Context, authU Authentication) (token
 		err = errors.New("username or password is incorrect")
 		return
 	}
-	tokenString, tokenExpirationTime, err = generateJWT(authU.Email, "user")
+	tokenString, tokenExpirationTime, err = generateJWT(user.Email, user.Role)
 	if err != nil {
 		return
 	}
+	return
+
+}
+
+func (b *bookingService) AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error) {
+	rDate, errr := time.Parse(DateOnly, m.Release_date)
+	if errr != nil {
+		err = errors.New("err: failed to add movie")
+		return
+	}
+	newM := db.Movie{
+		Title:        m.Title,
+		Language:     m.Language,
+		Release_date: rDate,
+		Genre:        m.Genre,
+		Duration:     m.Duration,
+	}
+
+	movie_id, err = b.store.AddMovie(ctx, newM)
+	if err != nil {
+		b.logger.Errorf("Err: Adding Movie: %v", err.Error())
+		return
+	}
+
+	b.logger.Infof("Movie id  %v", movie_id)
+
 	return
 
 }
