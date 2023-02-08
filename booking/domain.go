@@ -50,3 +50,31 @@ type NewScreen struct {
 	Screen_dimension string `json:"screen_dimension"`
 	Multiplex_id     int    `json:"muliplex_id"`
 }
+
+type NewMultiplex struct {
+	Name          string `json:"name"`
+	Contact       string `json:"contact"`
+	Total_screens int    `json:"total_screens"`
+	Locality      string `json:"locality"`
+	City          string `json:"city"`
+	State         string `json:"state"`
+	Pincode       int    `json:"pincode"`
+	Location_id   int    `json:"location_id"`
+}
+
+type NewLocation struct {
+	City    string `json:"city"`
+	State   string `json:"state"`
+	Pincode int    `json:"pincode"`
+}
+
+type NewShow struct {
+	Date         string `json:"show_date"`
+	Start_time   string `json:"start_time"`
+	End_time     string `json:"end_time"`
+	Movie        string `json:"movie"`
+	Screen       int    `json:"screen"`
+	Screen_id    int    `json:"screen_id"`
+	Movie_id     int    `json:"movie_id"`
+	Multiplex_id int    `json:"multiplex_id"`
+}

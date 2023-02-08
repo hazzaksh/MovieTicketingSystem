@@ -7,13 +7,22 @@ import (
 	"net/http"
 	"net/mail"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Coderx44/MovieTicketingPortal/app"
+	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func PingHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	t, _ := time.Parse("15:04:05", "18:00:00")
+	st := t.Format(time.Kitchen)
+	t, _ = time.Parse("15:04:05", st)
+	log.Println(id, t)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("pong"))
 }
@@ -86,7 +95,7 @@ func Login(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var authUser Authentication
 		err := json.NewDecoder(r.Body).Decode(&authUser)
-		log.Println(authUser)
+		// log.Println(authUser)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(err)
@@ -149,8 +158,9 @@ func AddMovie(s Service) http.HandlerFunc {
 		movie_id, err := s.AddMovie(r.Context(), newM)
 
 		if err != nil {
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Err - Internal Server Error - Failure creating user account"))
+			w.Write([]byte("Err - Internal Server Error - Failed to Add Movie"))
 			return
 		}
 
@@ -160,4 +170,130 @@ func AddMovie(s Service) http.HandlerFunc {
 		w.Write(respBytes)
 
 	})
+}
+
+func AddScreen(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		tokenString := r.Header["Token"]
+
+		claims, err := ValidateJWT(tokenString[0])
+		if err != nil || claims.Role != "admin" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode("Unauthorized")
+			return
+		}
+		vars := mux.Vars(r)
+		id, ok := vars["id"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode("Invalid Multiplex id")
+			return
+		}
+		var newSn NewScreen
+		json.NewDecoder(r.Body).Decode(&newSn)
+		newSn.Multiplex_id, _ = strconv.Atoi(id)
+
+		if newSn.Screen_number == 0 || newSn.Total_seats == 0 || newSn.Sound_system == "" || newSn.Screen_dimension == "" || newSn.Multiplex_id == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Provide the required parameters"))
+			return
+		}
+		log.Println("newsnn", newSn)
+		screen_id, err := s.AddScreen(r.Context(), newSn)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err - Internal Server Error - Failed to add screen"))
+			return
+		}
+
+		respBytes, _ := json.Marshal(screen_id)
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(respBytes)
+
+	})
+}
+
+func AddMultiplex(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header["Token"]
+		// log.Println(tokenString)
+		claims, err := ValidateJWT(tokenString[0])
+		log.Println(claims)
+		if err != nil || claims.Role != "admin" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode("Unauthorized")
+			return
+		}
+
+		var newM NewMultiplex
+		json.NewDecoder(r.Body).Decode(&newM)
+		if newM.Name == "" || newM.Contact == "" || newM.Total_screens == 0 || newM.Locality == "" || newM.City == "" || newM.State == "" || newM.Pincode == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Provide the required parameters"))
+			return
+		}
+
+		multiplex_id, err := s.AddMultiplex(r.Context(), newM)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err - Internal Server Error - Failed to add multiplex"))
+			return
+		}
+
+		respBytes, _ := json.Marshal(multiplex_id)
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(respBytes)
+
+	})
+}
+
+func AddShow(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header["Token"]
+		claims, err := ValidateJWT(tokenString[0])
+		log.Println(claims)
+		if err != nil || claims.Role != "admin" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode("Unauthorized")
+			return
+		}
+
+		vars := mux.Vars(r)
+		id, ok := vars["id"]
+
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode("Invalid Multiplex id")
+			return
+		}
+		var newShow NewShow
+		json.NewDecoder(r.Body).Decode(&newShow)
+		log.Println("newsh", newShow)
+		newShow.Multiplex_id, err = strconv.Atoi(id)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid id"))
+			return
+		}
+
+		show_id, err := s.AddShow(r.Context(), newShow)
+
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err: Internal Server Error - Failed to add show"))
+			return
+		}
+
+		respBytes, _ := json.Marshal(show_id)
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(respBytes)
+	})
+
 }
