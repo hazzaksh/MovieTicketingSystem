@@ -137,14 +137,16 @@ func Login(s Service) http.HandlerFunc {
 
 func AddMovie(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header["Token"]
+		// tokenString := r.Header["Token"]
 
-		claims, err := ValidateJWT(tokenString[0])
-		if err != nil || claims.Role != "admin" {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode("Unauthorized")
-			return
-		}
+		// claims, err := ValidateJWT(tokenString[0])
+		// if err != nil || claims.Role != "admin" {
+		// 	w.WriteHeader(http.StatusUnauthorized)
+		// 	json.NewEncoder(w).Encode("Unauthorized")
+		// 	return
+		// }
+
+		// claims := r.Context().Value("claims").(Claims)
 
 		var newM NewMovie
 		json.NewDecoder(r.Body).Decode(&newM)
@@ -175,14 +177,14 @@ func AddMovie(s Service) http.HandlerFunc {
 func AddScreen(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		tokenString := r.Header["Token"]
+		// tokenString := r.Header["Token"]
 
-		claims, err := ValidateJWT(tokenString[0])
-		if err != nil || claims.Role != "admin" {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode("Unauthorized")
-			return
-		}
+		// claims, err := ValidateJWT(tokenString[0])
+		// if err != nil || claims.Role != "admin" {
+		// 	w.WriteHeader(http.StatusUnauthorized)
+		// 	json.NewEncoder(w).Encode("Unauthorized")
+		// 	return
+		// }
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if !ok {
@@ -218,15 +220,15 @@ func AddScreen(s Service) http.HandlerFunc {
 
 func AddMultiplex(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header["Token"]
-		// log.Println(tokenString)
-		claims, err := ValidateJWT(tokenString[0])
-		log.Println(claims)
-		if err != nil || claims.Role != "admin" {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode("Unauthorized")
-			return
-		}
+		// tokenString := r.Header["Token"]
+		// // log.Println(tokenString)
+		// claims, err := ValidateJWT(tokenString[0])
+		// log.Println(claims)
+		// if err != nil || claims.Role != "admin" {
+		// 	w.WriteHeader(http.StatusUnauthorized)
+		// 	json.NewEncoder(w).Encode("Unauthorized")
+		// 	return
+		// }
 
 		var newM NewMultiplex
 		json.NewDecoder(r.Body).Decode(&newM)
@@ -254,14 +256,14 @@ func AddMultiplex(s Service) http.HandlerFunc {
 
 func AddShow(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header["Token"]
-		claims, err := ValidateJWT(tokenString[0])
-		log.Println(claims)
-		if err != nil || claims.Role != "admin" {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode("Unauthorized")
-			return
-		}
+		// tokenString := r.Header["Token"]
+		// claims, err := ValidateJWT(tokenString[0])
+		// log.Println(claims)
+		// if err != nil || claims.Role != "admin" {
+		// 	w.WriteHeader(http.StatusUnauthorized)
+		// 	json.NewEncoder(w).Encode("Unauthorized")
+		// 	return
+		// }
 
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
@@ -273,7 +275,8 @@ func AddShow(s Service) http.HandlerFunc {
 		}
 		var newShow NewShow
 		json.NewDecoder(r.Body).Decode(&newShow)
-		log.Println("newsh", newShow)
+		// log.Println("newsh", newShow)
+		var err error
 		newShow.Multiplex_id, err = strconv.Atoi(id)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)

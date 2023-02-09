@@ -329,13 +329,14 @@ func (s *store) AddShow(ctx context.Context, sh Show) (show_id uint, err error) 
 		}
 		tx.Commit()
 	}()
-	log.Println(sh.Start_time, sh.End_time)
+	// log.Println(sh.Start_time, sh.End_time)
+
 	ctxWithTx := newContext(ctx, tx)
 	err = WithDefaultTimeout(ctxWithTx, func(ctx context.Context) error {
 		err := s.db.GetContext(ctx, &show_id, AddShowQuery, sh.Show_date, sh.Start_time, sh.End_time, sh.Screen_id, sh.Movie_id, sh.Multiplex_id)
 
 		if err != nil {
-			log.Println(err, show_id)
+			log.Println("error in add show:", err)
 			return err
 		}
 		return nil
@@ -350,7 +351,7 @@ func (s *store) GetScreenByNumberAndMultiplexID(ctx context.Context, s_no int, m
 
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
 		err = s.db.GetContext(ctx, &sn, getScreenByNumberAndMultiplexID, s_no, m_id)
-		log.Println("select seat_id", err)
+
 		return err
 	})
 

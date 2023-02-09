@@ -28,6 +28,11 @@ type Storer interface {
 	GetScreenByNumberAndMultiplexID(ctx context.Context, s_no int, m_id int) (s Screen, err error)
 	GetMovieByTitle(ctx context.Context, title string) (movie_id uint, err error)
 	AddSeats(ctx context.Context, num_of_seats int, show_id int) (err error)
+	// DeleteMultiplexByID(ctx context.Context, id int) (err error)
+	// DeleteScreenByID(ctx context.Context, id int) (err error)
+	// DeleteShowByID(ctx context.Context, id int) (err error)
+	// DeleteSeatByID(ctx context.Context, id int) (err error)
+	// DeleteBookingByID(ctx context.Context, id int) (err error)
 	// GetUserByName(ctx context.Context, name string) (u User, err error)
 	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
 

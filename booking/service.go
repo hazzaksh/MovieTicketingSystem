@@ -199,6 +199,7 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 		err = errors.New("err: invalid screen number")
 		return
 	}
+
 	s.Screen_id = screen.Screen_id
 	movie_id, ok := MovieExists(b, ctx, s.Movie)
 	if !ok {
@@ -206,12 +207,14 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 		err = errors.New("err: Movie doesn't exist")
 		return
 	}
+
 	s.Movie_id = movie_id
 	rDate, err := time.Parse(DateOnly, s.Date)
 	if err != nil {
 		err = errors.New("invalid date format")
 		return
 	}
+
 	st_time, err := time.Parse(time.Kitchen, strings.TrimSpace(s.Start_time))
 	if err != nil {
 		log.Println(err)
@@ -220,6 +223,7 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 	if err != nil {
 		log.Println(err)
 	}
+
 	newSh := db.Show{
 		Show_date:    rDate,
 		Start_time:   st_time,
@@ -228,7 +232,8 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 		Movie_id:     s.Movie_id,
 		Multiplex_id: s.Multiplex_id,
 	}
-	log.Println("newsh", newSh)
+
+	// log.Println("newsh", newSh)
 	show_id, err = b.store.AddShow(ctx, newSh)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {

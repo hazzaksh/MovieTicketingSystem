@@ -2,8 +2,10 @@ package booking
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/Coderx44/MovieTicketingPortal/db"
@@ -29,19 +31,47 @@ func generateJWT(email string, role string) (tokenString string, tokenExpiration
 	return
 }
 
-func ValidateJWT(tokenString string) (claims *Claims, err error) {
-	claims = &Claims{}
-	log.Println(tokenString)
-	_, err = jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+func ValidateJWT(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+		claims := &Claims{}
+		_, err := jwt.ParseWithClaims(authHeader, claims, func(token *jwt.Token) (interface{}, error) {
+			return secretKey, nil
+		})
+		if err != nil {
+			http.Error(w, "Token is invalid", http.StatusUnauthorized)
+			return
+		}
+
+		if claims.Role != "admin" {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode("Unauthorized")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "claims", claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+
 	})
-	log.Println(err)
-	if err != nil {
-		err = fmt.Errorf("unauthorized, err: %v", err)
-		return
-	}
-	return
 }
+
+// func ValidateJWT(tokenString string) (claims *Claims, err error) {
+// 	claims = &Claims{}
+// 	log.Println(tokenString)
+// 	_, err = jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+// 		return secretKey, nil
+// 	})
+// 	log.Println(err)
+// 	if err != nil {
+// 		err = fmt.Errorf("unauthorized, err: %v", err)
+// 		return
+// 	}
+// 	return
+// }
 
 func CheckPasswordHash(authPass string, dbPass string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(dbPass), []byte(authPass))

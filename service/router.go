@@ -13,14 +13,15 @@ func initRouter(dep dependencies) (router *mux.Router) {
 	v1 := fmt.Sprintf("application/vnd.%s.v1", config.AppName())
 	_ = v1
 	router = mux.NewRouter()
-	router.HandleFunc("/ping/{id}", booking.PingHandler).Methods(http.MethodGet)
+	router.Use()
+	router.HandleFunc("/ping/{id}", booking.ValidateJWT(booking.PingHandler)).Methods(http.MethodGet)
 	router.HandleFunc("/create/user", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/create/admin", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/login", booking.Login(dep.BookingService)).Methods(http.MethodPost)
-	router.HandleFunc("/movie/add", booking.AddMovie(dep.BookingService))
-	router.HandleFunc("/multiplex", booking.AddMultiplex(dep.BookingService)).Methods(http.MethodPost)
-	router.HandleFunc("/multiplex/{id}/screen", booking.AddScreen(dep.BookingService)).Methods(http.MethodPost)
-	router.HandleFunc("/multiplex/{id}/show", booking.AddShow(dep.BookingService)).Methods(http.MethodPost)
+	router.HandleFunc("/movie/add", booking.ValidateJWT(booking.AddMovie(dep.BookingService))).Methods(http.MethodPost)
+	router.HandleFunc("/multiplex", booking.ValidateJWT(booking.AddMultiplex(dep.BookingService))).Methods(http.MethodPost)
+	router.HandleFunc("/multiplex/{id}/screen", booking.ValidateJWT(booking.AddScreen(dep.BookingService))).Methods(http.MethodPost)
+	router.HandleFunc("/multiplex/{id}/show", booking.ValidateJWT(booking.AddShow(dep.BookingService))).Methods(http.MethodPost)
 
 	return
 }
