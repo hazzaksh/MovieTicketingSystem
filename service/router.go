@@ -28,5 +28,6 @@ func initRouter(dep dependencies) (router *mux.Router) {
 	router.HandleFunc("/bookseats", booking.ValidateJWT(booking.BookSeats(dep.BookingService), "user")).Methods(http.MethodPost)
 	router.HandleFunc("/movies/new", booking.GetUpcomingMovies(dep.BookingService)).Methods(http.MethodGet)
 	router.HandleFunc("/movie/{title}", (booking.GetMovieByTitle(dep.BookingService))).Methods(http.MethodGet)
+	router.HandleFunc("/bookings/cancel", booking.ValidateJWT(booking.CancelBooking(dep.BookingService), "user")).Methods(http.MethodDelete)
 	return
 }

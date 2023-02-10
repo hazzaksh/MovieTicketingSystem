@@ -432,3 +432,27 @@ func GetMovieByTitle(s Service) http.HandlerFunc {
 
 	})
 }
+func CancelBooking(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		values := r.URL.Query()
+		id, ok := values["id"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: id required"))
+			return
+		}
+		booking_id, err := strconv.Atoi(id[0])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		err = s.CancelBooking(r.Context(), booking_id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		json.NewEncoder(w).Encode("seats cancelled successfully.")
+	})
+}

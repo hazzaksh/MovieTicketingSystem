@@ -32,6 +32,7 @@ type Service interface {
 	AddBookingsBySeatId(ctx context.Context, seats []int, email string) (invoice Invoice, err error)
 	GetUpcomingMovies(ctx context.Context, date string) (m []NewMovie, err error)
 	GetMovieByTitle(ctx context.Context, title string) (m NewMovie, err error)
+	CancelBooking(ctx context.Context, id int) (err error)
 }
 
 type bookingService struct {
@@ -380,20 +381,21 @@ func (b *bookingService) AddBookingsBySeatId(ctx context.Context, seats []int, e
 		err = errors.New("Seats not available")
 		return
 	}
-
-	err = b.store.AddBookingsBySeatId(ctx, seats, email)
-	if err != nil {
-		return
-	}
 	seat, err := b.store.GetSeatsByID(ctx, seats)
 	if err != nil {
 		return
 	}
+	show_id := seat[0].Show_id
 	var seat_num []int
 	for _, value := range seat {
 		seat_num = append(seat_num, value.Seat_number)
 	}
-	show_id := seat[0].Show_id
+
+	err = b.store.AddBookingsBySeatId(ctx, seats, email, show_id, seat_num)
+	if err != nil {
+		return
+	}
+
 	invoice, err = createInvoice(b, ctx, show_id)
 	invoice.Email = email
 	invoice.Seats = seat_num
@@ -424,6 +426,16 @@ func (b *bookingService) GetMovieByTitle(ctx context.Context, title string) (m N
 	m, err = MovieExists(b, ctx, title)
 	if err != nil {
 		err = errors.New("movie not found")
+		return
+	}
+	return
+}
+
+func (b *bookingService) CancelBooking(ctx context.Context, id int) (err error) {
+	err = b.store.DeleteByBookingByID(ctx, id)
+	log.Println(err)
+	if err != nil {
+		err = errors.New("err: cannot cancel booking")
 		return
 	}
 	return

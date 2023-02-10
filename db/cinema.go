@@ -47,10 +47,24 @@ const (
 	getMovieByTitle                 = `Select * From MOVIES where title=$1`
 	AddSeatsQuery                   = `INSERT INTO SEATS (seat_number, price, show_id, status) VALUES ($1, $2, $3, $4)`
 	getAllSeatsByShowIDQuery        = `SELECT * FROM SEATS WHERE show_id=$1`
-	bookSeatsQuery                  = `WITH updated_seats AS (UPDATE seats SET status = 'sold' WHERE seat_id = ANY($1) AND status = 'Available' RETURNING * ) INSERT INTO bookings (status, email, seat_id, show_id)
-	  SELECT 'sold', $2, seat_id, show_id
-	  FROM updated_seats`
-
+	// bookSeatsQuery                  = `WITH updated_seats AS (UPDATE seats SET status = 'sold' WHERE seat_id = ANY($1) AND status = 'Available' RETURNING * ) INSERT INTO bookings (status, email, seat_id, show_id)
+	//   SELECT 'sold', $2, seat_id, show_id
+	//   FROM updated_seats`
+	bookSeatsQuery = `BEGIN;
+	WITH available_seats AS (
+	  SELECT seat_id, seat_number
+	  FROM seats
+	  WHERE seat_id = ANY($1) AND status = 'available'
+	)
+	UPDATE seats
+	SET status = 'sold'
+	WHERE seat_id IN (SELECT seat_id FROM available_seats)
+	RETURNING seat_id;
+	
+	INSERT INTO bookings (status, email, seats, show_id)
+	VALUES ('sold', $2, (SELECT array_agg(seat_number) FROM available_seats), $3);
+	
+	COMMIT;`
 	checkIfAvailable  = `WITH seats_status AS (SELECT seat_id, status FROM seats WHERE seat_id = ANY($1)) SELECT count(*) FROM seats_status WHERE status = 'Available' HAVING count(*) = (SELECT count(*) FROM seats_status)`
 	getSeatsByID      = `SELECT * FROM seats WHERE seat_id = ANY($1)`
 	getInvoiceDetails = `SELECT m.title, m.language, s.screen_number, sh.start_time, m.duration, mu.name as multiplex_name, mu.locality
@@ -544,37 +558,52 @@ func (s *store) GetSeatsByShowID(ctx context.Context, id int) (seats []Seats, er
 
 }
 
-func (s *store) AddBookingsBySeatId(ctx context.Context, seats []int, email string) (err error) {
+func (s *store) AddBookingsBySeatId(ctx context.Context, seats []int, email string, show_id int, seat_num []int) (err error) {
 
-	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
+	updateStmt, err := s.db.Prepare("UPDATE seats SET status = 'sold' WHERE seat_id = $1")
 	if err != nil {
+
 		return
 	}
 
-	defer func() {
+	defer updateStmt.Close()
+
+	insertStmt, err := s.db.Prepare("INSERT INTO bookings (status, email, seat_id, show_id) VALUES ('sold', $1, $2, $3) RETURNING booking_id")
+	if err != nil {
+		// Handle error
+		return
+	}
+	defer insertStmt.Close()
+
+	tx, err := s.db.Begin()
+	if err != nil {
+
+		return
+	}
+
+	for _, seatID := range seats {
+
+		_, err = tx.Stmt(updateStmt).Exec(seatID)
 		if err != nil {
-			e := tx.Rollback()
-			if e != nil {
-				err = errors.WithStack(e)
-				return
-			}
+
+			tx.Rollback()
+			return
 		}
-		tx.Commit()
-	}()
-	// log.Println(sh.Start_time, sh.End_time)
+	}
 
-	ctxWithTx := newContext(ctx, tx)
-	err = WithDefaultTimeout(ctxWithTx, func(ctx context.Context) error {
-		_, err := s.db.ExecContext(ctx, bookSeatsQuery, pq.Array(seats), email)
+	var bookingID int
+	err = tx.Stmt(insertStmt).QueryRow(email, pq.Array(seat_num), show_id).Scan(&bookingID)
+	if err != nil {
 
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		return nil
+		tx.Rollback()
+		return
+	}
 
-	})
+	err = tx.Commit()
+	if err != nil {
 
+		return
+	}
 	return
 }
 func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error) {
@@ -677,5 +706,32 @@ func (s *store) GetUpcomingMovies(ctx context.Context, date string) (m []Movie, 
 	}
 
 	return
+
+}
+
+func (s *store) DeleteByBookingByID(ctx context.Context, id int) (err error) {
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("UPDATE seats SET status = 'Available' WHERE (seat_number = ANY(ARRAY(SELECT seat_id FROM bookings WHERE booking_id = $1))) AND show_id = (SELECT show_id FROM bookings WHERE booking_id = $1)", id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("UPDATE bookings SET status = 'Cancelled' WHERE booking_id = $1", id)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }
