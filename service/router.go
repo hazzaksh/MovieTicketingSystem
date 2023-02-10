@@ -14,7 +14,7 @@ func initRouter(dep dependencies) (router *mux.Router) {
 	_ = v1
 	router = mux.NewRouter()
 	router.Use()
-	router.HandleFunc("/ping/{id}", booking.ValidateJWT(booking.PingHandler)).Methods(http.MethodGet)
+	router.HandleFunc("/pi/{id}", booking.ValidateJWT(booking.PingHandler)).Methods(http.MethodGet)
 	router.HandleFunc("/create/user", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/create/admin", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/login", booking.Login(dep.BookingService)).Methods(http.MethodPost)
