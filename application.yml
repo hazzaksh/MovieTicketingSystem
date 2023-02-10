@@ -4,7 +4,7 @@ APP_PORT: 3000
 DB_DRIVER: "postgres"
 DB_HOST: "database-2.c2tuuysyqfj3.ap-south-1.rds.amazonaws.com"
 DB_PORT: 5432
-DB_NAME: "TicketingPortal"
+DB_NAME: "ticketingportal"
 DB_USER: "postgres"
 DB_PASSWORD: "postgres"
 DB_MAX_POOL_SIZE: 5
