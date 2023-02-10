@@ -2,7 +2,7 @@ APP_NAME: "Movie_Ticketing_Sytem"
 APP_PORT: 3000
 
 DB_DRIVER: "postgres"
-DB_HOST: "localhost"
+DB_HOST: "database-2.c2tuuysyqfj3.ap-south-1.rds.amazonaws.com"
 DB_PORT: 5432
 DB_NAME: "TicketingPortal"
 DB_USER: "postgres"
