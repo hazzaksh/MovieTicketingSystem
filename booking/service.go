@@ -2,6 +2,7 @@ package booking
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -22,8 +23,13 @@ type Service interface {
 	AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error)
 	AddScreen(ctx context.Context, s NewScreen) (screen_id uint, err error)
 	AddMultiplex(ctx context.Context, m NewMultiplex) (multiplex_id uint, err error)
-	AddLocation(ctx context.Context, l NewLocation) (location_id uint, err error)
+	AddLocation(ctx context.Context, l NewLocation) (location_id int, err error)
 	AddShow(ctx context.Context, s NewShow) (show_id uint, err error)
+	GetAllMultiplexesByCity(ctx context.Context, city string) (m []NewMultiplex, err error)
+	GetAllShowsByDateAndMultiplexId(ctx context.Context, date string, multiplex_id int) (map[string][]MultiplexShow, error)
+	GetAllShowsByMovieAndDate(ctx context.Context, date string, title string, city string) (map[string][]MultiplexShow, error)
+	GetAllSeatsByShowID(ctx context.Context, show_id int) (map[int][]Seats, error)
+	AddBookingsBySeatId(ctx context.Context, seats []int, email string) (invoice Invoice, err error)
 }
 
 type bookingService struct {
@@ -139,7 +145,7 @@ func (b *bookingService) AddScreen(ctx context.Context, s NewScreen) (screen_id 
 
 }
 
-func (b *bookingService) AddLocation(ctx context.Context, l NewLocation) (location_id uint, err error) {
+func (b *bookingService) AddLocation(ctx context.Context, l NewLocation) (location_id int, err error) {
 
 	newL := db.Location{
 		City:    l.City,
@@ -252,4 +258,148 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 
 	return
 
+}
+
+func (b *bookingService) GetAllMultiplexesByCity(ctx context.Context, city string) (m []NewMultiplex, err error) {
+
+	location, err := b.store.GetLocationIdByCity(ctx, city)
+	if err != nil {
+		b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		return
+	}
+
+	multiplexes, err := b.store.GetAllMultiplexesByLocationID(ctx, location.Location_id)
+	if err != nil {
+		b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		return
+	}
+
+	for _, multiplx := range multiplexes {
+
+		multiplex := NewMultiplex{
+			multiplx.Multiplex_id,
+			multiplx.Name,
+			multiplx.Contact,
+			multiplx.Total_screens,
+			multiplx.Locality,
+			location.City,
+			location.State,
+			location.Pincode,
+			location.Location_id,
+		}
+
+		m = append(m, multiplex)
+	}
+
+	return
+
+}
+
+func (b *bookingService) GetAllShowsByDateAndMultiplexId(ctx context.Context, date string, multiplex_id int) (map[string][]MultiplexShow, error) {
+	shows := make(map[string][]MultiplexShow)
+	log.Println(date)
+	cDate, err := time.Parse("2006-01-02", strings.TrimSpace(date))
+	log.Println(err)
+	if err != nil {
+		err = errors.New("invalid date format")
+		return shows, err
+	}
+
+	allShows, err := b.store.GetAllShowsByDateAndMultiplexId(ctx, cDate, multiplex_id)
+	if err != nil {
+		b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
+		return shows, err
+	}
+
+	for _, value := range allShows {
+		shows[value.Title] = append(shows[value.Title], MultiplexShow(value))
+	}
+
+	return shows, err
+
+}
+
+func (b *bookingService) GetAllShowsByMovieAndDate(ctx context.Context, date string, title string, city string) (map[string][]MultiplexShow, error) {
+	shows := make(map[string][]MultiplexShow)
+	log.Println(date)
+	cDate, err := time.Parse("2006-01-02", strings.TrimSpace(date))
+	log.Println(err)
+	if err != nil {
+		err = errors.New("invalid date format")
+		return shows, err
+	}
+
+	allShows, err := b.store.GetAllShowsByMovieAndDate(ctx, title, city, cDate)
+	if err != nil {
+		b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
+		return shows, err
+	}
+
+	for _, value := range allShows {
+		shows[value.Multiplex_name+" "+value.Locality] = append(shows[value.Title], MultiplexShow(value))
+	}
+
+	return shows, err
+
+}
+
+func (b *bookingService) GetAllSeatsByShowID(ctx context.Context, show_id int) (map[int][]Seats, error) {
+
+	seats := make(map[int][]Seats)
+
+	allSeats, err := b.store.GetSeatsByShowID(ctx, show_id)
+
+	if err != nil {
+		b.logger.Errorf("Err: Fetching Seats: %v", err.Error())
+		return seats, err
+	}
+	for _, value := range allSeats {
+		seats[value.Seat_number] = append(seats[value.Seat_number], Seats(value))
+	}
+
+	return seats, err
+
+}
+
+func createInvoice(b *bookingService, ctx context.Context, show_id int) (invoice Invoice, err error) {
+
+	invoiceDb, err := b.store.GetInvoiceDetails(ctx, show_id)
+	return Invoice(invoiceDb), err
+}
+
+func (b *bookingService) AddBookingsBySeatId(ctx context.Context, seats []int, email string) (invoice Invoice, err error) {
+
+	log.Println("in service", seats)
+	available, err := b.store.CheckAvailability(ctx, seats)
+	if err != nil && err == sql.ErrNoRows {
+		err = errors.New("Seats not available")
+		return
+	}
+	if !available {
+		err = errors.New("Seats not available")
+		return
+	}
+
+	err = b.store.AddBookingsBySeatId(ctx, seats, email)
+	if err != nil {
+		return
+	}
+	seat, err := b.store.GetSeatsByID(ctx, seats)
+	if err != nil {
+		return
+	}
+	var seat_num []int
+	for _, value := range seat {
+		seat_num = append(seat_num, value.Seat_number)
+	}
+	show_id := seat[0].Show_id
+	invoice, err = createInvoice(b, ctx, show_id)
+	invoice.Email = email
+	invoice.Seats = seat_num
+	invoice.Total_price = len(seat_num) * seat[0].Price
+	if err != nil {
+		err = errors.New("err: cannot generate invoice")
+		return
+	}
+	return
 }

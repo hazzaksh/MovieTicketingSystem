@@ -3,23 +3,32 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
 const (
-	CreateUserQuery      = `INSERT INTO USERS(name, password, email, phone_number, role) VALUES ($1, $2, $3, $4, $5 ) returning user_id`
-	getUserByEmail       = `SELECT * FROM users WHERE email=$1`
-	AddMovieQuery        = `INSERT INTO MOVIES(title, language, release_date, genre, duration) VALUES ($1, $2, $3, $4, $5) returning movie_id`
-	getMultiplexesByName = `Select * FROM multiplexes WHERE name=$1`
-	AddScreenQuery       = `INSERT INTO SCREENS (screen_number, total_seats, sound_system, screen_dimension, multiplex_id) VALUES ($1, $2, $3, $4, $5) returning screen_id`
-	AddLocationQuery     = `INSERT INTO LOCATIONS (city, state, pincode) VALUES ($1, $2, $3) returning location_id`
-	AddMultiplexQuery    = `INSERT INTO MULTIPLEXES (name, contact, total_screens, locality, location_id) VALUES ($1, $2, $3, $4, $5) returning multiplex_id`
-	getLocationIdByCity  = `SELECT location_id from locations WHERE city=$1`
-	getMultiplexeByID    = `Select multiplex_id FROM multiplexes WHERE multiplex_id=$1`
-	AddShowQuery         = `INSERT INTO shows (show_date, start_time, end_time, screen_id, movie_id, multiplex_id)
+	CreateUserQuery                 = `INSERT INTO USERS(name, password, email, phone_number, role) VALUES ($1, $2, $3, $4, $5 ) returning user_id`
+	getUserByEmail                  = `SELECT * FROM users WHERE email=$1`
+	AddMovieQuery                   = `INSERT INTO MOVIES(title, language, release_date, genre, duration) VALUES ($1, $2, $3, $4, $5) returning movie_id`
+	getMultiplexesByName            = `Select * FROM multiplexes WHERE name=$1`
+	getAllMultiplexeByLocationID    = `SELECT * FROM MULTIPLEXES WHERE location_id=$1`
+	AddScreenQuery                  = `INSERT INTO SCREENS (screen_number, total_seats, sound_system, screen_dimension, multiplex_id) VALUES ($1, $2, $3, $4, $5) returning screen_id`
+	AddLocationQuery                = `INSERT INTO LOCATIONS (city, state, pincode) VALUES ($1, $2, $3) returning location_id`
+	AddMultiplexQuery               = `INSERT INTO MULTIPLEXES (name, contact, total_screens, locality, location_id) VALUES ($1, $2, $3, $4, $5) returning multiplex_id`
+	getLocationIdByCity             = `SELECT * from locations WHERE Lower(city)=Lower($1)`
+	getMultiplexeByID               = `Select multiplex_id FROM multiplexes WHERE multiplex_id=$1`
+	getAllShowsByMultiplexIDandDate = `SELECT movies.title AS movie_title, movies.language, movies.duration, movies.genre, movies.movie_id, shows.show_id, shows.start_time, multiplexes.locality, multiplexes.name, shows.show_date
+										FROM movies JOIN shows ON movies.movie_id = shows.movie_id JOIN multiplexes ON shows.multiplex_id = multiplexes.multiplex_id WHERE shows.show_date = $1 AND multiplexes.multiplex_id = $2;`
+
+	GetAllShowsByMovieAndDate = `SELECT movies.title AS movie_title, movies.language, movies.duration, movies.genre, movies.movie_id, shows.show_id, shows.start_time, multiplexes.locality, multiplexes.name, shows.show_date
+									FROM multiplexes JOIN locations ON multiplexes.location_id = locations.location_id JOIN shows ON multiplexes.multiplex_id = shows.multiplex_id JOIN movies ON shows.movie_id = movies.movie_id WHERE locations.city = $1 AND movies.title = $2 AND shows.show_date = $3`
+
+	AddShowQuery = `INSERT INTO shows (show_date, start_time, end_time, screen_id, movie_id, multiplex_id)
 	SELECT $1, $2, $3, $4, $5, $6
 	WHERE NOT EXISTS (
 		SELECT 1 FROM shows
@@ -37,6 +46,21 @@ const (
 	getScreenByNumberAndMultiplexID = `Select * From screens WHERE screen_number=$1 and multiplex_id=$2`
 	getMovieByTitle                 = `Select movie_id From MOVIES where title=$1`
 	AddSeatsQuery                   = `INSERT INTO SEATS (seat_number, price, show_id, status) VALUES ($1, $2, $3, $4)`
+	getAllSeatsByShowIDQuery        = `SELECT * FROM SEATS WHERE show_id=$1`
+	bookSeatsQuery                  = `WITH updated_seats AS (UPDATE seats SET status = 'sold' WHERE seat_id = ANY($1) AND status = 'Available' RETURNING * ) INSERT INTO bookings (status, email, seat_id, show_id)
+	  SELECT 'sold', $2, seat_id, show_id
+	  FROM updated_seats`
+
+	checkIfAvailable  = `WITH seats_status AS (SELECT seat_id, status FROM seats WHERE seat_id = ANY($1)) SELECT count(*) FROM seats_status WHERE status = 'Available' HAVING count(*) = (SELECT count(*) FROM seats_status)`
+	getSeatsByID      = `SELECT * FROM seats WHERE seat_id = ANY($1)`
+	getInvoiceDetails = `SELECT m.title, m.language, s.screen_number, sh.start_time, m.duration, mu.name as multiplex_name, mu.locality
+	FROM shows sh
+	INNER JOIN screens s ON sh.screen_id = s.screen_id
+	INNER JOIN movies m ON sh.movie_id = m.movie_id
+	INNER JOIN multiplexes mu ON sh.multiplex_id = mu.multiplex_id
+	WHERE sh.show_id = $1;
+	`
+	getUpcomingMovies = `SELECT * FROM MOVIES WHERE release_date > Convert(date, $1)`
 )
 
 type User struct {
@@ -104,9 +128,41 @@ type Booking struct {
 	Booking_id int    `json:"booking_id" db:"booking_id"`
 	Price      int    `json:"price" db:"price"`
 	Status     string `json:"status" db:"status"`
-	User_id    int    `json:"user_id" db:"user_id"`
+	Email      int    `json:"Email" db:"email"`
 	Seat_id    int    `json:"seat_id" db:"seat_id"`
 	Show_id    int    `json:"show_id" db:"show_id"`
+}
+type MultiplexShow struct {
+	Title          string    `json:"title"`
+	Multiplex_name string    `json:"multiplex_name"`
+	Language       string    `json:"language"`
+	Duration       string    `json:"duration"`
+	Genre          string    `json:"genre"`
+	Movie_id       string    `json:"movie_id"`
+	Show_id        string    `json:"show_id"`
+	Start_time     time.Time `json:"show_time"`
+	Locality       string    `json:"locality"`
+	Date           time.Time `json:"show_date"`
+}
+type Seats struct {
+	Seat_id     int    `json:"seat_id"`
+	Seat_number int    `json:"seat_number"`
+	Price       int    `json:"price"`
+	Status      string `json:"status"`
+	Show_id     int    `json:"show_id"`
+}
+
+type Invoice struct {
+	Email          string    `json:"email"`
+	Movie          string    `json:"movie"`
+	Language       string    `json:"language"`
+	Screen         string    `json:"screen"`
+	Start_time     time.Time `json:"start_time"`
+	Duration       string    `json:"duration"`
+	Seats          []int     `json:"seats"`
+	Total_price    int       `json:"price"`
+	Multiplex_name string    `json:"multiplex"`
+	Localtiy       string    `json:"locality"`
 }
 
 func (s *store) CreateUser(ctx context.Context, u User) (user_id uint, err error) {
@@ -224,7 +280,7 @@ func (s *store) AddScreen(ctx context.Context, sn Screen) (screen_id uint, err e
 
 }
 
-func (s *store) AddLocation(ctx context.Context, l Location) (location_id uint, err error) {
+func (s *store) AddLocation(ctx context.Context, l Location) (location_id int, err error) {
 
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
@@ -284,15 +340,40 @@ func (s *store) AddMultiplex(ctx context.Context, m Multiplexe) (muliplex_id uin
 	return
 }
 
-func (s *store) GetLocationIdByCity(ctx context.Context, city string) (location_id uint, err error) {
+func (s *store) GetAllMultiplexesByLocationID(ctx context.Context, location_id int) (m []Multiplexe, err error) {
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getAllMultiplexeByLocationID, location_id)
+		return err
+	})
+	defer rows.Close()
+	for rows.Next() {
+		var multiplex Multiplexe
+		err = rows.Scan(&multiplex.Multiplex_id, &multiplex.Name, &multiplex.Contact, &multiplex.Total_screens, &multiplex.Locality, &multiplex.Location_id)
+		if err != nil {
+			return
+		}
+		m = append(m, multiplex)
+	}
+	log.Println(m, err)
+	if err = rows.Err(); err != nil {
+		return
+	}
+	if err == sql.ErrNoRows {
+		return m, errors.New("No multiplexes found.")
+	}
+	return
+}
+
+func (s *store) GetLocationIdByCity(ctx context.Context, city string) (location Location, err error) {
 
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		err = s.db.GetContext(ctx, &location_id, getLocationIdByCity, city)
+		err = s.db.GetContext(ctx, &location, getLocationIdByCity, city)
 		return err
 	})
 	log.Println(city)
 	if err == sql.ErrNoRows {
-		return location_id, errors.New("location doesn't exist")
+		return location, errors.New("location doesn't exist")
 	}
 	return
 }
@@ -368,7 +449,7 @@ func (s *store) GetMovieByTitle(ctx context.Context, title string) (movie_id uin
 		return err
 	})
 
-	if err == sql.ErrNoRows {
+	if err != nil && err == sql.ErrNoRows {
 		return movie_id, errors.New("movie doesn't exist")
 	}
 	return
@@ -383,5 +464,193 @@ func (s *store) AddSeats(ctx context.Context, num_of_seats int, show_id int) (er
 			return err
 		})
 	}
+	return
+}
+
+func (s *store) GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.Time, multiplex_id int) (m []MultiplexShow, err error) {
+
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getAllShowsByMultiplexIDandDate, date, multiplex_id)
+		log.Println("ff", err)
+		return err
+	})
+	defer rows.Close()
+	for rows.Next() {
+		var mShow MultiplexShow
+		err = rows.Scan(&mShow.Title, &mShow.Language, &mShow.Duration, &mShow.Genre, &mShow.Movie_id, &mShow.Show_id, &mShow.Start_time, &mShow.Locality, &mShow.Multiplex_name, &mShow.Date)
+		if err != nil {
+			return
+		}
+		m = append(m, mShow)
+	}
+
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return m, errors.New("No shows found.")
+	}
+	return
+
+}
+func (s *store) GetAllShowsByMovieAndDate(ctx context.Context, title string, city string, date time.Time) (m []MultiplexShow, err error) {
+
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, GetAllShowsByMovieAndDate, city, title, date)
+		log.Println("ff", err)
+		return err
+	})
+	defer rows.Close()
+	for rows.Next() {
+		var mShow MultiplexShow
+		err = rows.Scan(&mShow.Title, &mShow.Language, &mShow.Duration, &mShow.Genre, &mShow.Movie_id, &mShow.Show_id, &mShow.Start_time, &mShow.Locality, &mShow.Multiplex_name, &mShow.Date)
+		if err != nil {
+			return
+		}
+		m = append(m, mShow)
+	}
+
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return m, errors.New("No shows found.")
+	}
+	return
+
+}
+
+func (s *store) GetSeatsByShowID(ctx context.Context, id int) (seats []Seats, err error) {
+
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getAllSeatsByShowIDQuery, id)
+		log.Println("ff", err)
+		return err
+	})
+	defer rows.Close()
+	for rows.Next() {
+		var mShow Seats
+		err = rows.Scan(&mShow.Seat_id, &mShow.Seat_number, &mShow.Price, &mShow.Status, &mShow.Show_id)
+		if err != nil {
+			return
+		}
+		seats = append(seats, mShow)
+	}
+
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return seats, errors.New("No seats found.")
+	}
+	return
+
+}
+
+func (s *store) AddBookingsBySeatId(ctx context.Context, seats []int, email string) (err error) {
+
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			e := tx.Rollback()
+			if e != nil {
+				err = errors.WithStack(e)
+				return
+			}
+		}
+		tx.Commit()
+	}()
+	// log.Println(sh.Start_time, sh.End_time)
+
+	ctxWithTx := newContext(ctx, tx)
+	err = WithDefaultTimeout(ctxWithTx, func(ctx context.Context) error {
+		_, err := s.db.ExecContext(ctx, bookSeatsQuery, pq.Array(seats), email)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		return nil
+
+	})
+
+	return
+}
+func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error) {
+	// var status int
+	seatIDsString := "{"
+	for i, seatID := range seats {
+		seatIDsString += fmt.Sprintf("%d", seatID)
+		if i < len(seats)-1 {
+			seatIDsString += ","
+		}
+	}
+	seatIDsString += "}"
+	log.Println(pq.Array(seats), "ogseats:", seats)
+
+	var count int
+	err := WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		err := s.db.GetContext(ctx, &count, checkIfAvailable, pq.Array(seats))
+		return err
+	})
+	// log.Println(err)
+	// log.Println("status", count)
+	if err != nil && err == sql.ErrNoRows {
+		return false, err
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (s *store) GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err error) {
+
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getSeatsByID, pq.Array(id))
+		log.Println("ff", err)
+		return err
+	})
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return seats, errors.New("Err fetching seats")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var mShow Seats
+		err = rows.Scan(&mShow.Seat_id, &mShow.Seat_number, &mShow.Price, &mShow.Status, &mShow.Show_id)
+		if err != nil {
+			return
+		}
+		seats = append(seats, mShow)
+	}
+
+	return
+}
+
+func (s *store) GetInvoiceDetails(ctx context.Context, show_id int) (invoice Invoice, err error) {
+	log.Print(show_id)
+	var rows *sql.Rows
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getInvoiceDetails, show_id)
+		log.Println("ff", err)
+		return err
+	})
+	err = rows.Err()
+
+	if err != nil && err == sql.ErrNoRows {
+		return invoice, errors.New("Err fetching invoice details")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&invoice.Movie, &invoice.Language, &invoice.Screen, &invoice.Start_time, &invoice.Duration, &invoice.Multiplex_name, &invoice.Localtiy)
+		if err != nil {
+			return
+		}
+	}
+	log.Println(invoice)
+
 	return
 }

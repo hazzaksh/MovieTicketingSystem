@@ -78,11 +78,12 @@ CREATE TABLE IF NOT EXISTS bookings(
 
 booking_id SERIAL PRIMARY KEY,
 status text,
-user_id int REFERENCES users (user_id),
+email text REFERENCES users (email),
 seat_id int REFERENCES seats (seat_id),
 show_id int REFERENCES shows (show_id)
 
 );
+
 
 
 

@@ -31,7 +31,7 @@ func generateJWT(email string, role string) (tokenString string, tokenExpiration
 	return
 }
 
-func ValidateJWT(next http.HandlerFunc) http.HandlerFunc {
+func ValidateJWT(next http.HandlerFunc, role string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -47,13 +47,13 @@ func ValidateJWT(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if claims.Role != "admin" {
+		if claims.Role != role {
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode("Unauthorized")
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "claims", claims)
+		ctx := context.WithValue(r.Context(), "token", claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 
 	})
@@ -78,12 +78,13 @@ func CheckPasswordHash(authPass string, dbPass string) bool {
 	return err == nil
 }
 
-func getLocationID(ctx context.Context, b *bookingService, city string, state string, pincode int) (location_id uint, err error) {
+func getLocationID(ctx context.Context, b *bookingService, city string, state string, pincode int) (location_id int, err error) {
 
-	location_id, err = b.store.GetLocationIdByCity(ctx, city)
-
+	location, err := b.store.GetLocationIdByCity(ctx, city)
+	location_id = int(location.Location_id)
 	var lerr = "location doesn't exist"
-	if err.Error() == lerr {
+
+	if err != nil && err.Error() == lerr {
 
 		newL := db.Location{
 			City:    city,

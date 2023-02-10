@@ -137,16 +137,6 @@ func Login(s Service) http.HandlerFunc {
 
 func AddMovie(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// tokenString := r.Header["Token"]
-
-		// claims, err := ValidateJWT(tokenString[0])
-		// if err != nil || claims.Role != "admin" {
-		// 	w.WriteHeader(http.StatusUnauthorized)
-		// 	json.NewEncoder(w).Encode("Unauthorized")
-		// 	return
-		// }
-
-		// claims := r.Context().Value("claims").(Claims)
 
 		var newM NewMovie
 		json.NewDecoder(r.Body).Decode(&newM)
@@ -177,14 +167,6 @@ func AddMovie(s Service) http.HandlerFunc {
 func AddScreen(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		// tokenString := r.Header["Token"]
-
-		// claims, err := ValidateJWT(tokenString[0])
-		// if err != nil || claims.Role != "admin" {
-		// 	w.WriteHeader(http.StatusUnauthorized)
-		// 	json.NewEncoder(w).Encode("Unauthorized")
-		// 	return
-		// }
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if !ok {
@@ -220,15 +202,6 @@ func AddScreen(s Service) http.HandlerFunc {
 
 func AddMultiplex(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// tokenString := r.Header["Token"]
-		// // log.Println(tokenString)
-		// claims, err := ValidateJWT(tokenString[0])
-		// log.Println(claims)
-		// if err != nil || claims.Role != "admin" {
-		// 	w.WriteHeader(http.StatusUnauthorized)
-		// 	json.NewEncoder(w).Encode("Unauthorized")
-		// 	return
-		// }
 
 		var newM NewMultiplex
 		json.NewDecoder(r.Body).Decode(&newM)
@@ -256,14 +229,6 @@ func AddMultiplex(s Service) http.HandlerFunc {
 
 func AddShow(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// tokenString := r.Header["Token"]
-		// claims, err := ValidateJWT(tokenString[0])
-		// log.Println(claims)
-		// if err != nil || claims.Role != "admin" {
-		// 	w.WriteHeader(http.StatusUnauthorized)
-		// 	json.NewEncoder(w).Encode("Unauthorized")
-		// 	return
-		// }
 
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
@@ -299,4 +264,111 @@ func AddShow(s Service) http.HandlerFunc {
 		w.Write(respBytes)
 	})
 
+}
+
+func GetAllMultiplexesByCity(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		vars := mux.Vars(r)
+		city, ok := vars["city"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode("city required")
+			return
+		}
+
+		multiplexes, err := s.GetAllMultiplexesByCity(r.Context(), city)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err: Internal Server Error - Failed to fetch multiplexes"))
+			return
+		}
+
+		json.NewEncoder(w).Encode(&multiplexes)
+
+	})
+}
+
+func GetAllShowsByDateAndMultiplexId(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		values := r.URL.Query()
+		log.Println(values["date"][0])
+
+		multiplex_id, _ := strconv.Atoi(values["multiplex_id"][0])
+		resp, err := s.GetAllShowsByDateAndMultiplexId(r.Context(), values["date"][0], multiplex_id)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err: Internal Server Error - Failed to fetch all shows"))
+			return
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+func GetAllShowsByMovieAndDate(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		values := r.URL.Query()
+		log.Println(values["date"][0])
+
+		resp, err := s.GetAllShowsByMovieAndDate(r.Context(), values["date"][0], values["title"][0], values["city"][0])
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Err: Internal Server Error - Failed to fetch all shows"))
+			return
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+func GetAllSeatsByShowID(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		s_id, ok := vars["show_id"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: show id required"))
+			return
+		}
+		show_id, _ := strconv.Atoi(s_id)
+
+		resp, err := s.GetAllSeatsByShowID(r.Context(), show_id)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+
+}
+
+func BookSeats(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		var seats = make(map[string][]int)
+
+		claims := r.Context().Value("token")
+
+		claim := claims.(*Claims)
+
+		json.NewDecoder(r.Body).Decode(&seats)
+		log.Println(seats)
+		invoice, err := s.AddBookingsBySeatId(r.Context(), seats["seats"], claim.Email)
+		if err != nil && err.Error() == "Seats not available" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		} else if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		json.NewEncoder(w).Encode(invoice)
+	})
 }
