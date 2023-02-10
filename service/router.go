@@ -17,7 +17,7 @@ func initRouter(dep dependencies) (router *mux.Router) {
 	router.HandleFunc("/create/user", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/create/admin", booking.CreateNewUser(dep.BookingService)).Methods(http.MethodPost)
 	router.HandleFunc("/login", booking.Login(dep.BookingService)).Methods(http.MethodPost)
-	router.HandleFunc("/movie/add", booking.ValidateJWT(booking.AddMovie(dep.BookingService), "admin")).Methods(http.MethodPost)
+	router.HandleFunc("/movie", booking.ValidateJWT(booking.AddMovie(dep.BookingService), "admin")).Methods(http.MethodPost)
 	router.HandleFunc("/multiplex", booking.ValidateJWT(booking.AddMultiplex(dep.BookingService), "admin")).Methods(http.MethodPost)
 	router.HandleFunc("/multiplex/{id}/screen", booking.ValidateJWT(booking.AddScreen(dep.BookingService), "admin")).Methods(http.MethodPost)
 	router.HandleFunc("/multiplex/{id}/show", booking.ValidateJWT(booking.AddShow(dep.BookingService), "admin")).Methods(http.MethodPost)
@@ -25,6 +25,8 @@ func initRouter(dep dependencies) (router *mux.Router) {
 	router.HandleFunc("/shows/movie", booking.GetAllShowsByMovieAndDate(dep.BookingService)).Methods(http.MethodGet)
 	router.HandleFunc("/shows", booking.GetAllShowsByDateAndMultiplexId(dep.BookingService)).Methods(http.MethodGet)
 	router.HandleFunc("/seats/{show_id}", booking.GetAllSeatsByShowID(dep.BookingService)).Methods(http.MethodGet)
-	router.HandleFunc("/book", booking.ValidateJWT(booking.BookSeats(dep.BookingService), "user")).Methods(http.MethodPost)
+	router.HandleFunc("/bookseats", booking.ValidateJWT(booking.BookSeats(dep.BookingService), "user")).Methods(http.MethodPost)
+	router.HandleFunc("/movies/new", booking.GetUpcomingMovies(dep.BookingService)).Methods(http.MethodGet)
+	router.HandleFunc("/movie/{title}", (booking.GetMovieByTitle(dep.BookingService))).Methods(http.MethodGet)
 	return
 }

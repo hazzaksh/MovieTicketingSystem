@@ -38,12 +38,13 @@ type LoginResp struct {
 }
 
 type NewMovie struct {
-	Movie_id     int     `json:"movie_id"`
-	Title        string  `json:"title"`
-	Language     string  `json:"language"`
-	Release_date string  `json:"release_date"`
-	Genre        string  `json:"genre"`
-	Duration     float64 `json:"duration"`
+	Movie_id     int       `json:"movie_id"`
+	Title        string    `json:"title"`
+	Language     string    `json:"language"`
+	Poster       []byte    `json:"-"`
+	Release_date time.Time `json:"release_date"`
+	Genre        string    `json:"genre"`
+	Duration     float64   `json:"duration"`
 }
 
 type NewScreen struct {

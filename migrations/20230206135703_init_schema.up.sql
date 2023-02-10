@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS bookings(
 booking_id SERIAL PRIMARY KEY,
 status text,
 email text REFERENCES users (email),
-seat_id int REFERENCES seats (seat_id),
+seats int ARRAY ,
 show_id int REFERENCES shows (show_id)
 
 );

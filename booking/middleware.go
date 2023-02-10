@@ -120,7 +120,7 @@ func ScreenExists(b *bookingService, ctx context.Context, screen int, multpx_id 
 	return s, err == nil
 }
 
-func MovieExists(b *bookingService, ctx context.Context, title string) (int, bool) {
-	movie_id, err := b.store.GetMovieByTitle(ctx, title)
-	return int(movie_id), err == nil
+func MovieExists(b *bookingService, ctx context.Context, title string) (movie NewMovie, err error) {
+	m, err := b.store.GetMovieByTitle(ctx, title)
+	return NewMovie(m), err
 }

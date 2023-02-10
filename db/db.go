@@ -26,7 +26,7 @@ type Storer interface {
 	GetLocationIdByCity(ctx context.Context, city string) (l Location, err error)
 	AddShow(ctx context.Context, s Show) (show_id uint, err error)
 	GetScreenByNumberAndMultiplexID(ctx context.Context, s_no int, m_id int) (s Screen, err error)
-	GetMovieByTitle(ctx context.Context, title string) (movie_id uint, err error)
+	GetMovieByTitle(ctx context.Context, title string) (m Movie, err error)
 	AddSeats(ctx context.Context, num_of_seats int, show_id int) (err error)
 	GetAllMultiplexesByLocationID(ctx context.Context, location_id int) (m []Multiplexe, err error)
 	GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.Time, multiplex_id int) (m []MultiplexShow, err error)
@@ -36,7 +36,7 @@ type Storer interface {
 	CheckAvailability(ctx context.Context, seats []int) (bool, error)
 	GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err error)
 	GetInvoiceDetails(ctx context.Context, show_id int) (invoice Invoice, err error)
-	// GetUpcomingMovies(ctx con)
+	GetUpcomingMovies(ctx context.Context, date string) (m []Movie, err error)
 	// DeleteScreenByID(ctx context.Context, id int) (err error)
 	// DeleteShowByID(ctx context.Context, id int) (err error)
 	// DeleteSeatByID(ctx context.Context, id int) (err error)
@@ -44,10 +44,6 @@ type Storer interface {
 	// GetUserByName(ctx context.Context, name string) (u User, err error)
 	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
 
-	// GetShowByMultiplexID(ctx context.Context, multiplex_id int) (s []Shows, err error)
-	// GetScreenByID(ctx context.Context, id int) (s Screens, err error)
-	// getScreenTypeByClass(ctx context.Context, typee string) (st Screen_types, err error)
-	// StartBooking(ctx context.Context, no_of_seats int) (err error)
 }
 
 type store struct {

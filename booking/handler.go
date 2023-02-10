@@ -139,9 +139,26 @@ func AddMovie(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		var newM NewMovie
-		json.NewDecoder(r.Body).Decode(&newM)
+		var newmovie = make(map[string]string)
+		json.NewDecoder(r.Body).Decode(&newmovie)
+		rDate, err := time.Parse(DateOnly, newmovie["release_date"])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: Invalid release date"))
+			return
+		}
+		newM.Title = newmovie["title"]
+		newM.Language = newmovie["language"]
+		newM.Genre = newmovie["genre"]
+		newM.Release_date = rDate
+		newM.Duration, err = strconv.ParseFloat(newmovie["duration"], 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: Invalid duration"))
+			return
+		}
 
-		if newM.Title == "" || newM.Language == "" || newM.Release_date == "" || newM.Genre == "" || newM.Duration == 0.0 {
+		if newM.Title == "" || newM.Language == "" || newM.Release_date.IsZero() || newM.Genre == "" || newM.Duration == 0.0 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Provide the required parameters"))
 			return
@@ -370,5 +387,48 @@ func BookSeats(s Service) http.HandlerFunc {
 			return
 		}
 		json.NewEncoder(w).Encode(invoice)
+	})
+}
+
+func GetUpcomingMovies(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		currentDate := time.Now()
+		rdate := currentDate.Format("2006-01-02")
+		log.Println(len(rdate), rdate)
+		movies, err := s.GetUpcomingMovies(r.Context(), rdate)
+		if err != nil {
+			// log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		json.NewEncoder(w).Encode(movies)
+
+	})
+}
+
+func GetMovieByTitle(s Service) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		title, ok := vars["title"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Err: title required"))
+			return
+		}
+		movie, err := s.GetMovieByTitle(r.Context(), title)
+		if err != nil && err.Error() == "movie not found" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(err.Error()))
+			return
+		} else if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		json.NewEncoder(w).Encode(movie)
+
 	})
 }

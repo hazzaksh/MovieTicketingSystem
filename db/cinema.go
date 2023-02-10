@@ -44,7 +44,7 @@ const (
 	RETURNING show_id;
 	`
 	getScreenByNumberAndMultiplexID = `Select * From screens WHERE screen_number=$1 and multiplex_id=$2`
-	getMovieByTitle                 = `Select movie_id From MOVIES where title=$1`
+	getMovieByTitle                 = `Select * From MOVIES where title=$1`
 	AddSeatsQuery                   = `INSERT INTO SEATS (seat_number, price, show_id, status) VALUES ($1, $2, $3, $4)`
 	getAllSeatsByShowIDQuery        = `SELECT * FROM SEATS WHERE show_id=$1`
 	bookSeatsQuery                  = `WITH updated_seats AS (UPDATE seats SET status = 'sold' WHERE seat_id = ANY($1) AND status = 'Available' RETURNING * ) INSERT INTO bookings (status, email, seat_id, show_id)
@@ -60,7 +60,7 @@ const (
 	INNER JOIN multiplexes mu ON sh.multiplex_id = mu.multiplex_id
 	WHERE sh.show_id = $1;
 	`
-	getUpcomingMovies = `SELECT * FROM MOVIES WHERE release_date > Convert(date, $1)`
+	getUpcomingMovies = `SELECT * FROM MOVIES WHERE release_date > $1`
 )
 
 type User struct {
@@ -442,15 +442,15 @@ func (s *store) GetScreenByNumberAndMultiplexID(ctx context.Context, s_no int, m
 	return
 }
 
-func (s *store) GetMovieByTitle(ctx context.Context, title string) (movie_id uint, err error) {
+func (s *store) GetMovieByTitle(ctx context.Context, title string) (m Movie, err error) {
 
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		err = s.db.GetContext(ctx, &movie_id, getMovieByTitle, title)
+		err = s.db.GetContext(ctx, &m, getMovieByTitle, title)
 		return err
 	})
 
 	if err != nil && err == sql.ErrNoRows {
-		return movie_id, errors.New("movie doesn't exist")
+		return m, errors.New("movie doesn't exist")
 	}
 	return
 
@@ -631,7 +631,7 @@ func (s *store) GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err 
 }
 
 func (s *store) GetInvoiceDetails(ctx context.Context, show_id int) (invoice Invoice, err error) {
-	log.Print(show_id)
+	// log.Print(show_id)
 	var rows *sql.Rows
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
 		rows, err = s.db.QueryContext(ctx, getInvoiceDetails, show_id)
@@ -653,4 +653,29 @@ func (s *store) GetInvoiceDetails(ctx context.Context, show_id int) (invoice Inv
 	log.Println(invoice)
 
 	return
+}
+
+func (s *store) GetUpcomingMovies(ctx context.Context, date string) (m []Movie, err error) {
+	var rows *sql.Rows
+	rDate, _ := time.Parse("2006-01-02", date)
+	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+		rows, err = s.db.QueryContext(ctx, getUpcomingMovies, rDate)
+		return err
+	})
+	// err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return []Movie{{}}, errors.New("No movies available")
+	}
+	defer rows.Close()
+	var movie Movie
+	for rows.Next() {
+		err = rows.Scan(&movie.Movie_id, &movie.Title, &movie.Language, &movie.Poster, &movie.Release_date, &movie.Genre, &movie.Duration)
+		if err != nil {
+			return
+		}
+		m = append(m, movie)
+	}
+
+	return
+
 }

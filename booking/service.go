@@ -30,6 +30,8 @@ type Service interface {
 	GetAllShowsByMovieAndDate(ctx context.Context, date string, title string, city string) (map[string][]MultiplexShow, error)
 	GetAllSeatsByShowID(ctx context.Context, show_id int) (map[int][]Seats, error)
 	AddBookingsBySeatId(ctx context.Context, seats []int, email string) (invoice Invoice, err error)
+	GetUpcomingMovies(ctx context.Context, date string) (m []NewMovie, err error)
+	GetMovieByTitle(ctx context.Context, title string) (m NewMovie, err error)
 }
 
 type bookingService struct {
@@ -92,15 +94,12 @@ func (b *bookingService) Login(ctx context.Context, authU Authentication) (token
 }
 
 func (b *bookingService) AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error) {
-	rDate, errr := time.Parse(DateOnly, m.Release_date)
-	if errr != nil {
-		err = errors.New("err: failed to add movie")
-		return
-	}
+	// rDate, errr := time.Parse(DateOnly, m.Release_date)
+
 	newM := db.Movie{
 		Title:        m.Title,
 		Language:     m.Language,
-		Release_date: rDate,
+		Release_date: m.Release_date,
 		Genre:        m.Genre,
 		Duration:     m.Duration,
 	}
@@ -207,14 +206,16 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 	}
 
 	s.Screen_id = screen.Screen_id
-	movie_id, ok := MovieExists(b, ctx, s.Movie)
-	if !ok {
+	movie, err := MovieExists(b, ctx, s.Movie)
+	if err != nil && err.Error() == "movie doesn't exist" {
 		log.Println(err)
 		err = errors.New("err: Movie doesn't exist")
 		return
+	} else if err != nil {
+		return
 	}
 
-	s.Movie_id = movie_id
+	s.Movie_id = movie.Movie_id
 	rDate, err := time.Parse(DateOnly, s.Date)
 	if err != nil {
 		err = errors.New("invalid date format")
@@ -399,6 +400,30 @@ func (b *bookingService) AddBookingsBySeatId(ctx context.Context, seats []int, e
 	invoice.Total_price = len(seat_num) * seat[0].Price
 	if err != nil {
 		err = errors.New("err: cannot generate invoice")
+		return
+	}
+	return
+}
+
+func (b *bookingService) GetUpcomingMovies(ctx context.Context, date string) (m []NewMovie, err error) {
+
+	movies, err := b.store.GetUpcomingMovies(ctx, date)
+	if err != nil {
+		return
+	}
+
+	for _, value := range movies {
+		m = append(m, NewMovie(value))
+	}
+
+	return
+}
+
+func (b *bookingService) GetMovieByTitle(ctx context.Context, title string) (m NewMovie, err error) {
+
+	m, err = MovieExists(b, ctx, title)
+	if err != nil {
+		err = errors.New("movie not found")
 		return
 	}
 	return
