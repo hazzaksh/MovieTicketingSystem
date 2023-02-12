@@ -13,8 +13,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func generateJWT(email string, role string) (tokenString string, tokenExpirationTime time.Time, err error) {
-	tokenExpirationTime = time.Now().Add(30 * time.Minute)
+func generateJWT(email string, role string) (tokenString string, err error) {
+	var tokenExpirationTime = time.Now().Add(30 * time.Minute)
 	claims := &Claims{
 		Email: email,
 		Role:  role,

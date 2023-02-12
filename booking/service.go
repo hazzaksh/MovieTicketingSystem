@@ -19,7 +19,7 @@ const DateOnly = "2006-01-02"
 
 type Service interface {
 	CreateNewUser(ctx context.Context, u NewUser) (user_id uint, err error)
-	Login(ctx context.Context, authU Authentication) (tokenString string, tokenExpirationTime time.Time, err error)
+	Login(ctx context.Context, authU Authentication) (tokenString string, err error)
 	AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error)
 	AddScreen(ctx context.Context, s NewScreen) (screen_id uint, err error)
 	AddMultiplex(ctx context.Context, m NewMultiplex) (multiplex_id uint, err error)
@@ -53,19 +53,19 @@ func (b *bookingService) CreateNewUser(ctx context.Context, u NewUser) (user_id 
 		Name:        u.Name,
 		Email:       u.Email,
 		Password:    u.Password,
-		PhoneNumber: u.Phone_number,
+		PhoneNumber: u.PhoneNumber,
 		Role:        u.Role,
 	}
 
 	user_id, err = b.store.CreateUser(ctx, newU)
 	if err != nil {
-		b.logger.Errorf("Err creating user account: %v", err.Error())
+		// b.logger.Errorf("Err creating user account: %v", err)
 		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\"" {
 			err = fmt.Errorf("user exists for the given email")
 			return
 		}
 
-		b.logger.Infof("User Details  %v", user_id)
+		// b.logger.Infof("User Details  %v", user_id)
 
 		return
 	}
@@ -73,20 +73,22 @@ func (b *bookingService) CreateNewUser(ctx context.Context, u NewUser) (user_id 
 	return
 }
 
-func (b *bookingService) Login(ctx context.Context, authU Authentication) (tokenString string, tokenExpirationTime time.Time, err error) {
+func (b *bookingService) Login(ctx context.Context, authU Authentication) (tokenString string, err error) {
 	user, err := b.store.GetUserByEmail(ctx, authU.Email)
 
-	if err == errors.New("user does not exist in db") {
+	if err != nil && err.Error() == "user does not exist in db" {
 		err = errors.New("unauthorized")
+		return
+	} else if err != nil {
 		return
 	}
 
 	check := CheckPasswordHash(authU.Password, user.Password)
 	if !check {
-		err = errors.New("username or password is incorrect")
+		err = errors.New("unauthorized")
 		return
 	}
-	tokenString, tokenExpirationTime, err = generateJWT(user.Email, user.Role)
+	tokenString, err = generateJWT(user.Email, user.Role)
 	if err != nil {
 		return
 	}
@@ -266,13 +268,15 @@ func (b *bookingService) GetAllMultiplexesByCity(ctx context.Context, city strin
 
 	location, err := b.store.GetLocationIdByCity(ctx, city)
 	if err != nil {
-		b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		// b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		err = errors.New("failed to get multiplexes")
 		return
 	}
 
 	multiplexes, err := b.store.GetAllMultiplexesByLocationID(ctx, location.Location_id)
 	if err != nil {
-		b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		// b.logger.Errorf("Err: Fetching All multiplexes: %v", err.Error())
+		err = errors.New("failed to get multiplexes")
 		return
 	}
 
@@ -333,7 +337,7 @@ func (b *bookingService) GetAllShowsByMovieAndDate(ctx context.Context, date str
 
 	allShows, err := b.store.GetAllShowsByMovieAndDate(ctx, title, city, cDate)
 	if err != nil {
-		b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
+		// b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
 		return shows, err
 	}
 
@@ -352,7 +356,7 @@ func (b *bookingService) GetAllSeatsByShowID(ctx context.Context, show_id int) (
 	allSeats, err := b.store.GetSeatsByShowID(ctx, show_id)
 
 	if err != nil {
-		b.logger.Errorf("Err: Fetching Seats: %v", err.Error())
+		// b.logger.Errorf("Err: Fetching Seats: %v", err.Error())
 		return seats, err
 	}
 	for _, value := range allSeats {
@@ -373,7 +377,7 @@ func (b *bookingService) AddBookingsBySeatId(ctx context.Context, seats []int, e
 
 	log.Println("in service", seats)
 	available, err := b.store.CheckAvailability(ctx, seats)
-	if err != nil && err == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		err = errors.New("Seats not available")
 		return
 	}
@@ -411,7 +415,7 @@ func (b *bookingService) GetUpcomingMovies(ctx context.Context, date string) (m 
 
 	movies, err := b.store.GetUpcomingMovies(ctx, date)
 	if err != nil {
-		return
+		return []NewMovie{}, err
 	}
 
 	for _, value := range movies {

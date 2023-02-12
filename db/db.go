@@ -19,7 +19,7 @@ type Storer interface {
 	GetUserByEmail(ctx context.Context, email string) (u User, err error)
 	AddMovie(ctx context.Context, m Movie) (movie_id uint, err error)
 	AddScreen(ctx context.Context, m Screen) (screen_id uint, err error)
-	GetMultiplexesByName(ctx context.Context, name string) (m Multiplexe, err error)
+	// GetMultiplexesByName(ctx context.Context, name string) (m Multiplexe, err error)
 	GetMultiplexeByID(ctx context.Context, id int) (m_id uint, err error)
 	AddMultiplex(ctx context.Context, m Multiplexe) (multiplex_id uint, err error)
 	AddLocation(ctx context.Context, l Location) (location_id int, err error)
@@ -38,13 +38,6 @@ type Storer interface {
 	GetInvoiceDetails(ctx context.Context, show_id int) (invoice Invoice, err error)
 	GetUpcomingMovies(ctx context.Context, date string) (m []Movie, err error)
 	DeleteByBookingByID(ctx context.Context, id int) (err error)
-	// DeleteScreenByID(ctx context.Context, id int) (err error)
-	// DeleteShowByID(ctx context.Context, id int) (err error)
-	// DeleteSeatByID(ctx context.Context, id int) (err error)
-	// DeleteBookingByID(ctx context.Context, id int) (err error)
-	// GetUserByName(ctx context.Context, name string) (u User, err error)
-	// GetMultiplexesByCity(ctx context.Context, city string) (m Multiplexes, err error)
-
 }
 
 type store struct {

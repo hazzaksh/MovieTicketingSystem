@@ -39,7 +39,7 @@ func CreateNewUser(s Service) http.HandlerFunc {
 			return
 		}
 
-		if newUser.Email == "" || newUser.Password == "" || newUser.Name == "" || newUser.Phone_number == "" {
+		if newUser.Email == "" || newUser.Password == "" || newUser.Name == "" || newUser.PhoneNumber == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Provide the required parameters"))
 			return
@@ -52,7 +52,7 @@ func CreateNewUser(s Service) http.HandlerFunc {
 		}
 		newUser.Email = strings.Trim(newUser.Email, " ")
 		re := regexp.MustCompile(`^\d{10}$`)
-		if !re.MatchString(newUser.Phone_number) {
+		if !re.MatchString(newUser.PhoneNumber) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Err: Phone must contain 10 digits"))
 			return
@@ -113,7 +113,7 @@ func Login(s Service) http.HandlerFunc {
 			return
 		}
 		authUser.Email = strings.Trim(authUser.Email, " ")
-		tokenString, _, err := s.Login(r.Context(), authUser)
+		tokenString, err := s.Login(r.Context(), authUser)
 
 		if err != nil {
 			if err == errors.New("unauthorized") {

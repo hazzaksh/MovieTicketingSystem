@@ -7,11 +7,12 @@ import (
 )
 
 type NewUser struct {
-	Name         string `json:"name"`
-	Email        string `json:"email"`
-	Password     string `json:"password"`
-	Phone_number string `json:"phone_number"`
-	Role         string `json:"role"`
+	User_id     int    `json:"user_id"`
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	PhoneNumber string `json:"phone_number"`
+	Role        string `json:"role"`
 }
 
 type NewUserResponse struct {

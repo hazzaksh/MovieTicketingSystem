@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"time"
 
@@ -250,19 +249,19 @@ func (s *store) AddMovie(ctx context.Context, m Movie) (movie_id uint, err error
 
 }
 
-func (s *store) GetMultiplexesByName(ctx context.Context, name string) (m Multiplexe, err error) {
+// func (s *store) GetMultiplexesByName(ctx context.Context, name string) (m Multiplexe, err error) {
 
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		err = s.db.GetContext(ctx, &m, getUserByEmail, name)
-		return err
-	})
+// 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
+// 		err = s.db.GetContext(ctx, &m, getUserByEmail, name)
+// 		return err
+// 	})
 
-	if err == sql.ErrNoRows {
-		return m, errors.New("multiplex doesn't exist.")
-	}
-	return
+// 	if err == sql.ErrNoRows {
+// 		return m, errors.New("multiplex doesn't exist.")
+// 	}
+// 	return
 
-}
+// }
 func (s *store) AddScreen(ctx context.Context, sn Screen) (screen_id uint, err error) {
 
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
@@ -360,6 +359,9 @@ func (s *store) GetAllMultiplexesByLocationID(ctx context.Context, location_id i
 		rows, err = s.db.QueryContext(ctx, getAllMultiplexeByLocationID, location_id)
 		return err
 	})
+	if err == sql.ErrNoRows {
+		return []Multiplexe{{}}, errors.New("No multiplexes found.")
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var multiplex Multiplexe
@@ -369,13 +371,7 @@ func (s *store) GetAllMultiplexesByLocationID(ctx context.Context, location_id i
 		}
 		m = append(m, multiplex)
 	}
-	log.Println(m, err)
-	if err = rows.Err(); err != nil {
-		return
-	}
-	if err == sql.ErrNoRows {
-		return m, errors.New("No multiplexes found.")
-	}
+
 	return
 }
 
@@ -511,9 +507,11 @@ func (s *store) GetAllShowsByMovieAndDate(ctx context.Context, title string, cit
 	var rows *sql.Rows
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
 		rows, err = s.db.QueryContext(ctx, GetAllShowsByMovieAndDate, city, title, date)
-		log.Println("ff", err)
 		return err
 	})
+	if err == sql.ErrNoRows {
+		return m, errors.New("No shows found.")
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var mShow MultiplexShow
@@ -524,10 +522,6 @@ func (s *store) GetAllShowsByMovieAndDate(ctx context.Context, title string, cit
 		m = append(m, mShow)
 	}
 
-	err = rows.Err()
-	if err != nil && err == sql.ErrNoRows {
-		return m, errors.New("No shows found.")
-	}
 	return
 
 }
@@ -540,6 +534,10 @@ func (s *store) GetSeatsByShowID(ctx context.Context, id int) (seats []Seats, er
 		log.Println("ff", err)
 		return err
 	})
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return seats, errors.New("No seats found.")
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var mShow Seats
@@ -550,10 +548,6 @@ func (s *store) GetSeatsByShowID(ctx context.Context, id int) (seats []Seats, er
 		seats = append(seats, mShow)
 	}
 
-	err = rows.Err()
-	if err != nil && err == sql.ErrNoRows {
-		return seats, errors.New("No seats found.")
-	}
 	return
 
 }
@@ -608,14 +602,7 @@ func (s *store) AddBookingsBySeatId(ctx context.Context, seats []int, email stri
 }
 func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error) {
 	// var status int
-	seatIDsString := "{"
-	for i, seatID := range seats {
-		seatIDsString += fmt.Sprintf("%d", seatID)
-		if i < len(seats)-1 {
-			seatIDsString += ","
-		}
-	}
-	seatIDsString += "}"
+
 	log.Println(pq.Array(seats), "ogseats:", seats)
 
 	var count int
@@ -625,12 +612,9 @@ func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error
 	})
 	// log.Println(err)
 	// log.Println("status", count)
-	if err != nil && err == sql.ErrNoRows {
-		return false, err
-	} else if err != nil {
+	if err == sql.ErrNoRows {
 		return false, err
 	}
-
 	return true, nil
 }
 
@@ -639,14 +623,15 @@ func (s *store) GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err 
 	var rows *sql.Rows
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
 		rows, err = s.db.QueryContext(ctx, getSeatsByID, pq.Array(id))
-		log.Println("ff", err)
 		return err
 	})
+
 	err = rows.Err()
-	if err != nil && err == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return seats, errors.New("Err fetching seats")
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var mShow Seats
 		err = rows.Scan(&mShow.Seat_id, &mShow.Seat_number, &mShow.Price, &mShow.Status, &mShow.Show_id)
