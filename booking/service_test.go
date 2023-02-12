@@ -1149,3 +1149,84 @@ func (suite *BookingServiceTestSuite) TestAddScreen() {
 	}
 
 }
+
+func (suite *BookingServiceTestSuite) TestGetAllShowsByDateAndMultiplexId() {
+
+	t := suite.T()
+	cDate, _ := time.Parse("2006-01-02", "2023-02-09")
+	type args struct {
+		ctx          context.Context
+		s            *mocks.Storer
+		cDate        time.Time
+		multiplex_id int
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+		date    string
+		shows   map[string][]MultiplexShow
+		prepare func(args, *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx:          context.TODO(),
+				s:            suite.storer,
+				cDate:        cDate,
+				multiplex_id: 1,
+			},
+			wantErr: nil,
+			date:    "2023-02-09",
+			shows:   make(map[string][]MultiplexShow),
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetAllShowsByDateAndMultiplexId", a.ctx, a.cDate, a.multiplex_id).Return([]db.MultiplexShow{{}}, nil).Once()
+			},
+		},
+		{
+			name: "Failure: Get all shows by date and multiplex id",
+
+			args: args{
+				ctx:          context.TODO(),
+				s:            suite.storer,
+				cDate:        cDate,
+				multiplex_id: 2,
+			},
+			wantErr: errors.New("No shows found."),
+			date:    "2023-02-09",
+			shows:   make(map[string][]MultiplexShow),
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetAllShowsByDateAndMultiplexId", a.ctx, a.cDate, a.multiplex_id).Return([]db.MultiplexShow{{}}, errors.New("No shows found.")).Once()
+			},
+		},
+		{
+			name: "Failure: invalid time format",
+
+			args: args{
+				ctx:          context.TODO(),
+				s:            suite.storer,
+				cDate:        cDate,
+				multiplex_id: 2,
+			},
+			wantErr: errors.New("invalid date format"),
+			date:    "23-02-09",
+			shows:   make(map[string][]MultiplexShow),
+			prepare: func(a args, s *mocks.Storer) {
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.prepare(tt.args, suite.storer)
+			shows, err := suite.service.GetAllShowsByDateAndMultiplexId(tt.args.ctx, tt.date, tt.args.multiplex_id)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			suite.IsType(tt.shows, shows)
+		})
+	}
+}

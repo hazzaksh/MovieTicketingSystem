@@ -483,10 +483,13 @@ func (s *store) AddSeats(ctx context.Context, num_of_seats int, show_id int) (er
 func (s *store) GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.Time, multiplex_id int) (m []MultiplexShow, err error) {
 
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getAllShowsByMultiplexIDandDate, date, multiplex_id)
-		return err
-	})
+
+	rows, err = s.db.Query(getAllShowsByMultiplexIDandDate, date, multiplex_id)
+
+	err = rows.Err()
+	if err != nil && err == sql.ErrNoRows {
+		return m, errors.New("No shows found.")
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var mShow MultiplexShow
@@ -497,10 +500,6 @@ func (s *store) GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.T
 		m = append(m, mShow)
 	}
 
-	err = rows.Err()
-	if err != nil && err == sql.ErrNoRows {
-		return m, errors.New("No shows found.")
-	}
 	return
 
 }

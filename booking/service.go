@@ -23,7 +23,6 @@ type Service interface {
 	AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error)
 	AddScreen(ctx context.Context, s NewScreen) (screen_id uint, err error)
 	AddMultiplex(ctx context.Context, m NewMultiplex) (multiplex_id uint, err error)
-	// AddLocation(ctx context.Context, l NewLocation) (location_id int, err error)
 	AddShow(ctx context.Context, s NewShow) (show_id uint, err error)
 	GetAllMultiplexesByCity(ctx context.Context, city string) (m []NewMultiplex, err error)
 	GetAllShowsByDateAndMultiplexId(ctx context.Context, date string, multiplex_id int) (map[string][]MultiplexShow, error)
@@ -297,8 +296,8 @@ func (b *bookingService) GetAllShowsByDateAndMultiplexId(ctx context.Context, da
 	}
 
 	allShows, err := b.store.GetAllShowsByDateAndMultiplexId(ctx, cDate, multiplex_id)
-	if err != nil {
-		b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
+	if err != nil && err.Error() == "No shows found." {
+		// b.logger.Errorf("Err: Fetching All shows: %v", err.Error())
 		return shows, err
 	}
 

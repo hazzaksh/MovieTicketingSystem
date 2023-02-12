@@ -17,12 +17,7 @@ import (
 )
 
 func PingHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	t, _ := time.Parse("15:04:05", "18:00:00")
-	st := t.Format(time.Kitchen)
-	t, _ = time.Parse("15:04:05", st)
-	log.Println(id, t)
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("pong"))
 }
@@ -311,10 +306,17 @@ func GetAllShowsByDateAndMultiplexId(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		values := r.URL.Query()
-		log.Println(values["date"][0])
-
-		multiplex_id, _ := strconv.Atoi(values["multiplex_id"][0])
-		resp, err := s.GetAllShowsByDateAndMultiplexId(r.Context(), values["date"][0], multiplex_id)
+		// log.Println(values["date"][0])
+		var date string
+		var multiplex_id int
+		date = values["date"][0]
+		multiplex_id, _ = strconv.Atoi(values["multiplex_id"][0])
+		if date == "" || multiplex_id == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode("date and multiplex_id required")
+			return
+		}
+		resp, err := s.GetAllShowsByDateAndMultiplexId(r.Context(), date, multiplex_id)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
