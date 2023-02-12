@@ -23,7 +23,7 @@ type Service interface {
 	AddMovie(ctx context.Context, m NewMovie) (movie_id uint, err error)
 	AddScreen(ctx context.Context, s NewScreen) (screen_id uint, err error)
 	AddMultiplex(ctx context.Context, m NewMultiplex) (multiplex_id uint, err error)
-	AddLocation(ctx context.Context, l NewLocation) (location_id int, err error)
+	// AddLocation(ctx context.Context, l NewLocation) (location_id int, err error)
 	AddShow(ctx context.Context, s NewShow) (show_id uint, err error)
 	GetAllMultiplexesByCity(ctx context.Context, city string) (m []NewMultiplex, err error)
 	GetAllShowsByDateAndMultiplexId(ctx context.Context, date string, multiplex_id int) (map[string][]MultiplexShow, error)
@@ -109,11 +109,12 @@ func (b *bookingService) AddMovie(ctx context.Context, m NewMovie) (movie_id uin
 
 	movie_id, err = b.store.AddMovie(ctx, newM)
 	if err != nil {
-		b.logger.Errorf("Err: Adding Movie: %v", err.Error())
+		// b.logger.Errorf("Err: Adding Movie: %v", err.Error())
+		err = errors.New("failed to add movie")
 		return
 	}
 
-	b.logger.Infof("Movie id  %v", movie_id)
+	// b.logger.Infof("Movie id  %v", movie_id)
 
 	return
 
@@ -130,46 +131,29 @@ func (b *bookingService) AddScreen(ctx context.Context, s NewScreen) (screen_id 
 	}
 
 	if ok := MultiplexIdExists(b, ctx, newSn.Multiplex_id); !ok {
-		log.Println(err)
+
 		err = errors.New("err: invalid Multiplex id")
 		return
 	}
-	log.Println("newsn", newSn)
 	screen_id, err = b.store.AddScreen(ctx, newSn)
 	if err != nil {
-		b.logger.Errorf("Err: Adding Screen: %v", err.Error())
+		// b.logger.Errorf("Err: Adding Screen: %v", err.Error())
+		err = errors.New("failed to add scren")
 		return
 	}
 
-	b.logger.Infof("Screen ID  %v", screen_id)
+	// b.logger.Infof("Screen ID  %v", screen_id)
 
 	return
 
-}
-
-func (b *bookingService) AddLocation(ctx context.Context, l NewLocation) (location_id int, err error) {
-
-	newL := db.Location{
-		City:    l.City,
-		State:   l.State,
-		Pincode: l.Pincode,
-	}
-
-	location_id, err = b.store.AddLocation(ctx, newL)
-	if err != nil {
-		b.logger.Errorf("Err: Adding Location: %v", err.Error())
-		return
-	}
-
-	b.logger.Infof("Location ID  %v", location_id)
-	return
 }
 
 func (b *bookingService) AddMultiplex(ctx context.Context, m NewMultiplex) (multiplex_id uint, err error) {
 
 	location_id, err := getLocationID(ctx, b, m.City, m.State, m.Pincode)
 	if err != nil {
-		b.logger.Errorf("Err: Adding Multiplex: %v", err.Error())
+		err = errors.New("cannot add multiplex")
+		// b.logger.Errorf("Err: Adding Multiplex: %v", err.Error())
 		return
 	}
 
@@ -183,19 +167,19 @@ func (b *bookingService) AddMultiplex(ctx context.Context, m NewMultiplex) (mult
 
 	multiplex_id, err = b.store.AddMultiplex(ctx, newM)
 	if err != nil {
-		b.logger.Errorf("Err: Adding Multiplex: %v", err.Error())
+		// b.logger.Errorf("Err: Adding Multiplex: %v", err.Error())
+		err = errors.New("cannot add multiplex")
 		return
 	}
 
-	b.logger.Infof("Multiplex ID  %v", multiplex_id)
+	// b.logger.Infof("Multiplex ID  %v", multiplex_id)
 	return
 
 }
 
 func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, err error) {
-	log.Println("Show", s)
 	if ok := MultiplexIdExists(b, ctx, s.Multiplex_id); !ok {
-		log.Println(err)
+		// log.Println(err)
 		err = errors.New("err: invalid Multiplex id")
 		return
 	}
@@ -246,19 +230,20 @@ func (b *bookingService) AddShow(ctx context.Context, s NewShow) (show_id uint, 
 	// log.Println("newsh", newSh)
 	show_id, err = b.store.AddShow(ctx, newSh)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			err = errors.New("err : overlapping sow times")
+		if err == sql.ErrNoRows {
+			err = errors.New("err : overlapping show times")
 		}
-		b.logger.Errorf("Err: Adding Show: %v", err.Error())
+		// b.logger.Errorf("Err: Adding Show: %v", err.Error())
 		return
 	}
 
 	err = b.store.AddSeats(ctx, screen.Total_seats, int(show_id))
 	if err != nil {
-		b.logger.Errorf("Err: Adding seats for show: %v", err.Error())
+		// b.logger.Errorf("Err: Adding seats for show: %v", err.Error())
+		err = errors.New("err : adding seats")
 		return
 	}
-	b.logger.Infof("Show ID  %v", show_id)
+	// b.logger.Infof("Show ID  %v", show_id)
 
 	return
 
@@ -437,7 +422,7 @@ func (b *bookingService) GetMovieByTitle(ctx context.Context, title string) (m N
 
 func (b *bookingService) CancelBooking(ctx context.Context, id int) (err error) {
 	err = b.store.DeleteByBookingByID(ctx, id)
-	log.Println(err)
+
 	if err != nil {
 		err = errors.New("err: cannot cancel booking")
 		return

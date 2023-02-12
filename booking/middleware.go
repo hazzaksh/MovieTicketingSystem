@@ -93,17 +93,12 @@ func getLocationID(ctx context.Context, b *bookingService, city string, state st
 		}
 		location_id, err = b.store.AddLocation(ctx, newL)
 
-		if err != nil {
-			if err != nil {
-				b.logger.Errorf("Err: Adding Location: %v", err.Error())
-				return
-			}
-		}
+		// if err != nil {
+		// 	b.logger.Errorf("Err: Adding Location: %v", err.Error())
 		return
 	}
 
 	return
-
 }
 
 func MultiplexIdExists(b *bookingService, ctx context.Context, multiplex_id int) bool {

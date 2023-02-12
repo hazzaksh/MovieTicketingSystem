@@ -288,6 +288,9 @@ func (s *store) AddScreen(ctx context.Context, sn Screen) (screen_id uint, err e
 		return nil
 
 	})
+	if err == sql.ErrNoRows {
+		return uint(0), errors.New("failed to add screen")
+	}
 
 	return
 
@@ -459,8 +462,8 @@ func (s *store) GetMovieByTitle(ctx context.Context, title string) (m Movie, err
 		return err
 	})
 
-	if err != nil && err == sql.ErrNoRows {
-		return m, errors.New("movie doesn't exist")
+	if err == sql.ErrNoRows {
+		return Movie{}, errors.New("movie doesn't exist")
 	}
 	return
 
@@ -482,7 +485,6 @@ func (s *store) GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.T
 	var rows *sql.Rows
 	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
 		rows, err = s.db.QueryContext(ctx, getAllShowsByMultiplexIDandDate, date, multiplex_id)
-		log.Println("ff", err)
 		return err
 	})
 	defer rows.Close()
@@ -610,8 +612,7 @@ func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error
 		err := s.db.GetContext(ctx, &count, checkIfAvailable, pq.Array(seats))
 		return err
 	})
-	// log.Println(err)
-	// log.Println("status", count)
+
 	if err == sql.ErrNoRows {
 		return false, err
 	}

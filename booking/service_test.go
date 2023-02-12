@@ -580,12 +580,572 @@ func (suite *BookingServiceTestSuite) TestGetUpcomingMovies() {
 	}
 }
 
-// func (suite *BookingServiceTestSuite) TestGetMovieByTitle() {
+func (suite *BookingServiceTestSuite) TestGetMovieByTitle() {
 
-// 	t := suite.T()
-// 	type args struct {
-// 		ctx context.Context
-// 		id  int
-// 	}
+	t := suite.T()
+	type args struct {
+		ctx   context.Context
+		title string
+	}
 
-// }
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+		m       NewMovie
+		prepare func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx:   context.TODO(),
+				title: "Terminator",
+			},
+			wantErr: nil,
+			m:       NewMovie{},
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMovieByTitle", a.ctx, a.title).Return(db.Movie{}, nil).Once()
+			},
+		},
+		{
+			name: "Failure",
+			args: args{
+				ctx:   context.TODO(),
+				title: "Terminator",
+			},
+			wantErr: errors.New("movie not found"),
+			m:       NewMovie{},
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMovieByTitle", a.ctx, a.title).Return(db.Movie{}, errors.New("movie doesn't exist")).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			tt.prepare(tt.args, suite.storer)
+			movie, err := suite.service.GetMovieByTitle(tt.args.ctx, tt.args.title)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			suite.IsType(tt.m, movie)
+		})
+	}
+
+}
+
+func (suite *BookingServiceTestSuite) TestCancelBooking() {
+
+	t := suite.T()
+	type args struct {
+		ctx context.Context
+		id  int
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+		prepare func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx: context.TODO(),
+				id:  1,
+			},
+			wantErr: nil,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("DeleteByBookingByID", a.ctx, a.id).Return(nil).Once()
+			},
+		},
+		{
+			name: "Failure",
+			args: args{
+				ctx: context.TODO(),
+				id:  2,
+			},
+			wantErr: errors.New("err: cannot cancel booking"),
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("DeleteByBookingByID", a.ctx, a.id).Return(sql.ErrNoRows).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			tt.prepare(tt.args, suite.storer)
+			err := suite.service.CancelBooking(tt.args.ctx, tt.args.id)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+		})
+	}
+
+}
+
+func (suite *BookingServiceTestSuite) TestAddMovie() {
+
+	t := suite.T()
+	type args struct {
+		ctx     context.Context
+		dbMovie db.Movie
+	}
+
+	tests := []struct {
+		name     string
+		args     args
+		m        NewMovie
+		wantErr  error
+		movie_id uint
+		prepare  func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx:     context.TODO(),
+				dbMovie: db.Movie{},
+			},
+			m:        NewMovie{},
+			wantErr:  nil,
+			movie_id: 1,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("AddMovie", a.ctx, a.dbMovie).Return(uint(1), nil).Once()
+			},
+		},
+		{
+			name: "Failure",
+			args: args{
+				ctx:     context.TODO(),
+				dbMovie: db.Movie{},
+			},
+			m:        NewMovie{},
+			wantErr:  errors.New("failed to add movie"),
+			movie_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("AddMovie", a.ctx, a.dbMovie).Return(uint(0), errors.New("failure")).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			tt.prepare(tt.args, suite.storer)
+			movie, err := suite.service.AddMovie(tt.args.ctx, tt.m)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			assert.Equal(t, tt.movie_id, movie)
+		})
+	}
+}
+
+func (suite *BookingServiceTestSuite) TestAddMultiplex() {
+
+	t := suite.T()
+	type args struct {
+		ctx         context.Context
+		dbMultiplex db.Multiplexe
+		dbLocation  db.Location
+		city        string
+	}
+
+	tests := []struct {
+		name         string
+		args         args
+		wantErr      error
+		m            NewMultiplex
+		multiplex_id uint
+		prepare      func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx:         context.TODO(),
+				dbMultiplex: db.Multiplexe{},
+				dbLocation: db.Location{
+					City:    "Mumbai",
+					State:   "Maharashtra",
+					Pincode: 400078,
+				},
+				city: "Mumbai",
+			},
+			wantErr: nil,
+			m: NewMultiplex{
+				City:    "Mumbai",
+				State:   "Maharashtra",
+				Pincode: 400078,
+			},
+			multiplex_id: 1,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetLocationIdByCity", a.ctx, a.city).Return(db.Location{}, nil).Once()
+				// s.On("AddLocation", a.ctx, a.dbLocation).Return(1, nil).Once()
+				s.On("AddMultiplex", a.ctx, a.dbMultiplex).Return(uint(1), nil).Once()
+
+			},
+		},
+		{
+			name: "Success AddLocation",
+			args: args{
+				ctx: context.TODO(),
+				dbMultiplex: db.Multiplexe{
+					Location_id: 1,
+				},
+				dbLocation: db.Location{
+					City:    "Mumbai",
+					State:   "Maharashtra",
+					Pincode: 400078},
+				city: "Mumbai",
+			},
+			wantErr: nil,
+			m: NewMultiplex{
+				City:    "Mumbai",
+				State:   "Maharashtra",
+				Pincode: 400078,
+			},
+			multiplex_id: 1,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetLocationIdByCity", a.ctx, a.city).Return(db.Location{}, errors.New("location doesn't exist")).Once()
+				s.On("AddLocation", a.ctx, a.dbLocation).Return(1, nil).Once()
+				s.On("AddMultiplex", a.ctx, a.dbMultiplex).Return(uint(1), nil).Once()
+
+			},
+		},
+		{
+			name: "Failure AddLocation",
+			args: args{
+				ctx: context.TODO(),
+				dbMultiplex: db.Multiplexe{
+					Location_id: 1,
+				},
+				dbLocation: db.Location{
+					City:    "Mumbai",
+					State:   "Maharashtra",
+					Pincode: 400078},
+				city: "Mumbai",
+			},
+			wantErr: errors.New("cannot add multiplex"),
+			m: NewMultiplex{
+				City:    "Mumbai",
+				State:   "Maharashtra",
+				Pincode: 400078,
+			},
+			multiplex_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetLocationIdByCity", a.ctx, a.city).Return(db.Location{}, errors.New("location doesn't exist")).Once()
+				s.On("AddLocation", a.ctx, a.dbLocation).Return(0, errors.New("failed")).Once()
+				// s.On("AddMultiplex", a.ctx, a.dbMultiplex).Return(uint(1), nil).Once()
+
+			},
+		},
+		{
+			name: "Failure AddMultiplex",
+			args: args{
+				ctx: context.TODO(),
+				dbMultiplex: db.Multiplexe{
+					Location_id: 1,
+				},
+				dbLocation: db.Location{
+					City:    "Mumbai",
+					State:   "Maharashtra",
+					Pincode: 400078},
+				city: "Mumbai",
+			},
+			wantErr: errors.New("cannot add multiplex"),
+			m: NewMultiplex{
+				City:    "Mumbai",
+				State:   "Maharashtra",
+				Pincode: 400078,
+			},
+			multiplex_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetLocationIdByCity", a.ctx, a.city).Return(db.Location{}, errors.New("location doesn't exist")).Once()
+				s.On("AddLocation", a.ctx, a.dbLocation).Return(1, nil).Once()
+				s.On("AddMultiplex", a.ctx, a.dbMultiplex).Return(uint(0), errors.New("failed")).Once()
+
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			tt.prepare(tt.args, suite.storer)
+			multiplex, err := suite.service.AddMultiplex(tt.args.ctx, tt.m)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			assert.Equal(t, tt.multiplex_id, multiplex)
+		})
+	}
+
+}
+
+func (suite *BookingServiceTestSuite) TestAddShow() {
+
+	t := suite.T()
+
+	type args struct {
+		ctx    context.Context
+		s      NewShow
+		dbShow db.Show
+	}
+	rDate, _ := time.Parse(DateOnly, "2023-02-09")
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+		show_id uint
+		prepare func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: nil,
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, nil).Once()
+				s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, nil).Once()
+				s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), nil).Once()
+				s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(nil).Once()
+			},
+		},
+		{
+			name: "Failure to add seats",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: errors.New("err : adding seats"),
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, nil).Once()
+				s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, nil).Once()
+				s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), nil).Once()
+				s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(errors.New("failed")).Once()
+			},
+		},
+		{
+			name: "Failure to add show",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: errors.New("err : overlapping show times"),
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, nil).Once()
+				s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, nil).Once()
+				s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), sql.ErrNoRows).Once()
+				// s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(errors.New("failed")).Once()
+			},
+		},
+		{
+			name: "Failure (Movie doesn't exist)",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: errors.New("err: Movie doesn't exist"),
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, nil).Once()
+				s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, errors.New("movie doesn't exist")).Once()
+				// s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), sql.ErrNoRows).Once()
+				// s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(errors.New("failed")).Once()
+			},
+		},
+		{
+			name: "Failure (Movie doesn't exist)",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: errors.New("err: invalid screen number"),
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, errors.New("failed")).Once()
+				// s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, errors.New("movie doesn't exist")).Once()
+				// s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), sql.ErrNoRows).Once()
+				// s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(errors.New("failed")).Once()
+			},
+		},
+		{
+			name: "Failure (Movie doesn't exist)",
+			args: args{
+				ctx: context.TODO(),
+				s: NewShow{
+					Date:    "2023-02-09",
+					Show_id: 0,
+				},
+				dbShow: db.Show{
+					Show_date: rDate,
+					Show_id:   0,
+				},
+			},
+			wantErr: errors.New("err: invalid Multiplex id"),
+			show_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.s.Multiplex_id).Return(uint(1), errors.New("failed")).Once()
+				// s.On("GetScreenByNumberAndMultiplexID", a.ctx, a.s.Screen, a.s.Multiplex_id).Return(db.Screen{}, errors.New("failed")).Once()
+				// s.On("GetMovieByTitle", a.ctx, a.s.Movie).Return(db.Movie{}, errors.New("movie doesn't exist")).Once()
+				// s.On("AddShow", a.ctx, a.dbShow).Return(uint(0), sql.ErrNoRows).Once()
+				// s.On("AddSeats", a.ctx, 0, a.s.Show_id).Return(errors.New("failed")).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			tt.prepare(tt.args, suite.storer)
+			show, err := suite.service.AddShow(tt.args.ctx, tt.args.s)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			assert.Equal(t, tt.show_id, show)
+		})
+	}
+}
+
+func (suite *BookingServiceTestSuite) TestAddScreen() {
+
+	t := suite.T()
+
+	type args struct {
+		ctx      context.Context
+		s        *mocks.Storer
+		newS     NewScreen
+		dbScreen db.Screen
+	}
+
+	tests := []struct {
+		name      string
+		args      args
+		wantErr   error
+		screen_id uint
+		prepare   func(a args, s *mocks.Storer)
+	}{
+		{
+			name: "Success",
+			args: args{
+				ctx: context.TODO(),
+				s:   suite.storer,
+				newS: NewScreen{
+					Multiplex_id: 1,
+				},
+				dbScreen: db.Screen{
+					Multiplex_id: 1,
+				},
+			},
+			wantErr:   nil,
+			screen_id: 1,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.newS.Multiplex_id).Return(uint(1), nil).Once()
+				s.On("AddScreen", a.ctx, a.dbScreen).Return(uint(1), nil).Once()
+			},
+		},
+		{
+			name: "Failure - multiplexid",
+			args: args{
+				ctx: context.TODO(),
+				s:   suite.storer,
+				newS: NewScreen{
+					Multiplex_id: 2,
+				},
+				dbScreen: db.Screen{
+					Multiplex_id: 2,
+				},
+			},
+			wantErr:   errors.New("err: invalid Multiplex id"),
+			screen_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.newS.Multiplex_id).Return(uint(0), errors.New("failed")).Once()
+			},
+		},
+		{
+			name: "Failure - Add screen",
+			args: args{
+				ctx: context.TODO(),
+				s:   suite.storer,
+				newS: NewScreen{
+					Multiplex_id: 2,
+				},
+				dbScreen: db.Screen{
+					Multiplex_id: 2,
+				},
+			},
+			wantErr:   errors.New("failed to add scren"),
+			screen_id: 0,
+			prepare: func(a args, s *mocks.Storer) {
+				s.On("GetMultiplexeByID", a.ctx, a.newS.Multiplex_id).Return(uint(2), nil).Once()
+				s.On("AddScreen", a.ctx, a.dbScreen).Return(uint(0), sql.ErrNoRows).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.prepare(tt.args, suite.storer)
+			screen_id, err := suite.service.AddScreen(tt.args.ctx, tt.args.newS)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				require.ErrorIs(t, err, tt.wantErr)
+			}
+			assert.Equal(t, tt.screen_id, screen_id)
+		})
+	}
+
+}
