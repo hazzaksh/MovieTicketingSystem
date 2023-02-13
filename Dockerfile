@@ -23,4 +23,4 @@ COPY --from=build /movieticket-build-file /movieticket-build-file
 EXPOSE 3000
 
 
-CMD ["/movieticket-build-file", "start"]
+CMD ["sh", "'. /secrets/env && /movieticket-build-file start'"]
