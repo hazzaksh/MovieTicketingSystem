@@ -48,7 +48,7 @@ WORKDIR /
 
 COPY --from=build /movieticket-build-file /movieticket-build-file
 
-
+COPY ./migrations ./
 
 
 EXPOSE 3000
