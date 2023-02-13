@@ -1,0 +1,4 @@
+#!/bin/sh
+
+. /secrets/env
+/movieticket-build-file start
