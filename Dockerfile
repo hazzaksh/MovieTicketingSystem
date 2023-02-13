@@ -20,7 +20,7 @@ FROM ubuntu
 WORKDIR /
 
 COPY --from=build /movieticket-build-file /movieticket-build-file
-COPY ./migrations ./
+COPY ./migrations/* /migrations
 COPY ./runserver /runserver
 EXPOSE 3000
 
