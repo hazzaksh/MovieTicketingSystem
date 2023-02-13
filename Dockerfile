@@ -14,7 +14,7 @@ COPY . ./
 RUN go build -o /movieticket-build-file
 
 ## Deploy
-FROM alpine
+FROM ubuntu
 
 WORKDIR /
 
@@ -23,4 +23,4 @@ COPY ./run /run
 EXPOSE 3000
 
 
-CMD ["sh", "/run"]
+CMD ["bash", "/run"]
