@@ -19,7 +19,7 @@ FROM ubuntu
 WORKDIR /
 
 COPY --from=build /movieticket-build-file /movieticket-build-file
-COPY ./run /run
+COPY ./runserver /runserver
 EXPOSE 3000
 
 
