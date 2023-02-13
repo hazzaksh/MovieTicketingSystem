@@ -14,7 +14,7 @@ COPY . ./
 RUN go build -o /movieticket-build-file
 
 ## Deploy
-FROM gcr.io/distroless/base-debian10
+FROM alpine
 
 WORKDIR /
 
