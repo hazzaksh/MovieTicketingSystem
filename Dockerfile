@@ -23,4 +23,4 @@ COPY ./runserver /runserver
 EXPOSE 3000
 
 
-CMD ["bash", "/run"]
+CMD ["bash", "/runserver"]
