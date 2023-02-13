@@ -331,9 +331,16 @@ func GetAllShowsByMovieAndDate(s Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		values := r.URL.Query()
-		log.Println(values["date"][0])
-
-		resp, err := s.GetAllShowsByMovieAndDate(r.Context(), values["date"][0], values["title"][0], values["city"][0])
+		var date, title, city string
+		date = values["date"][0]
+		title = values["title"][0]
+		city = values["city"][0]
+		if date == "" || title == "" || city == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode("date, title and city required")
+			return
+		}
+		resp, err := s.GetAllShowsByMovieAndDate(r.Context(), date, title, city)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)

@@ -358,10 +358,9 @@ func (s *store) AddMultiplex(ctx context.Context, m Multiplexe) (muliplex_id uin
 
 func (s *store) GetAllMultiplexesByLocationID(ctx context.Context, location_id int) (m []Multiplexe, err error) {
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getAllMultiplexeByLocationID, location_id)
-		return err
-	})
+
+	rows, err = s.db.Query(getAllMultiplexeByLocationID, location_id)
+
 	if err == sql.ErrNoRows {
 		return []Multiplexe{{}}, errors.New("No multiplexes found.")
 	}
@@ -443,11 +442,7 @@ func (s *store) AddShow(ctx context.Context, sh Show) (show_id uint, err error) 
 
 func (s *store) GetScreenByNumberAndMultiplexID(ctx context.Context, s_no int, m_id int) (sn Screen, err error) {
 
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		err = s.db.GetContext(ctx, &sn, getScreenByNumberAndMultiplexID, s_no, m_id)
-
-		return err
-	})
+	err = s.db.Get(&sn, getScreenByNumberAndMultiplexID, s_no, m_id)
 
 	if err == sql.ErrNoRows {
 		return sn, errors.New("screen doesn't exist")
@@ -506,10 +501,8 @@ func (s *store) GetAllShowsByDateAndMultiplexId(ctx context.Context, date time.T
 func (s *store) GetAllShowsByMovieAndDate(ctx context.Context, title string, city string, date time.Time) (m []MultiplexShow, err error) {
 
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, GetAllShowsByMovieAndDate, city, title, date)
-		return err
-	})
+	rows, err = s.db.Query(GetAllShowsByMovieAndDate, city, title, date)
+
 	if err == sql.ErrNoRows {
 		return m, errors.New("No shows found.")
 	}
@@ -530,11 +523,9 @@ func (s *store) GetAllShowsByMovieAndDate(ctx context.Context, title string, cit
 func (s *store) GetSeatsByShowID(ctx context.Context, id int) (seats []Seats, err error) {
 
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getAllSeatsByShowIDQuery, id)
-		log.Println("ff", err)
-		return err
-	})
+
+	rows, err = s.db.Query(getAllSeatsByShowIDQuery, id)
+
 	err = rows.Err()
 	if err != nil && err == sql.ErrNoRows {
 		return seats, errors.New("No seats found.")
@@ -604,7 +595,7 @@ func (s *store) AddBookingsBySeatId(ctx context.Context, seats []int, email stri
 func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error) {
 	// var status int
 
-	log.Println(pq.Array(seats), "ogseats:", seats)
+	// log.Println(pq.Array(seats), "ogseats:", seats)
 
 	var count int
 	err := WithDefaultTimeout(ctx, func(ctx context.Context) error {
@@ -621,10 +612,8 @@ func (s *store) CheckAvailability(ctx context.Context, seats []int) (bool, error
 func (s *store) GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err error) {
 
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getSeatsByID, pq.Array(id))
-		return err
-	})
+
+	rows, err = s.db.Query(getSeatsByID, pq.Array(id))
 
 	err = rows.Err()
 	if err == sql.ErrNoRows {
@@ -647,11 +636,9 @@ func (s *store) GetSeatsByID(ctx context.Context, id []int) (seats []Seats, err 
 func (s *store) GetInvoiceDetails(ctx context.Context, show_id int) (invoice Invoice, err error) {
 	// log.Print(show_id)
 	var rows *sql.Rows
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getInvoiceDetails, show_id)
-		log.Println("ff", err)
-		return err
-	})
+
+	rows, err = s.db.Query(getInvoiceDetails, show_id)
+
 	err = rows.Err()
 
 	if err != nil && err == sql.ErrNoRows {
@@ -672,10 +659,9 @@ func (s *store) GetInvoiceDetails(ctx context.Context, show_id int) (invoice Inv
 func (s *store) GetUpcomingMovies(ctx context.Context, date string) (m []Movie, err error) {
 	var rows *sql.Rows
 	rDate, _ := time.Parse("2006-01-02", date)
-	err = WithDefaultTimeout(ctx, func(ctx context.Context) error {
-		rows, err = s.db.QueryContext(ctx, getUpcomingMovies, rDate)
-		return err
-	})
+
+	rows, err = s.db.Query(getUpcomingMovies, rDate)
+
 	// err = rows.Err()
 	if err != nil && err == sql.ErrNoRows {
 		return []Movie{{}}, errors.New("No movies available")
