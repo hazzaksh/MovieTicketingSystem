@@ -20,8 +20,7 @@ WORKDIR /
 
 COPY --from=build /movieticket-build-file /movieticket-build-file
 COPY ./run /run
-
 EXPOSE 3000
 
 
-CMD ["/run"]
+CMD ["sh", "/run"]
