@@ -20,11 +20,7 @@ WORKDIR /
 
 COPY --from=build /movieticket-build-file /movieticket-build-file
 
-COPY /home/jos/Desktop/env .
-RUN source ./env
-
 EXPOSE 3000
-
 
 
 CMD ["/movieticket-build-file", "start"]
