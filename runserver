@@ -1,3 +1,4 @@
 . /secrets/env
+/movieticket-build-file migrate
 /movieticket-build-file start
 
